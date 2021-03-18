@@ -9,28 +9,32 @@ using namespace std;
 void calcular_PAR (const string datos, const string restricciones, const int num_clusters, const string algoritmo){
     vector<int> solucion;
     PAR par(datos, restricciones, num_clusters);
+    double tiempo = 0.0;
 
     // GREEDY
     solucion = par.greedy();
+    //cout << "\n\nTIEMPO: " << tiempo;
+    //par.imprimirRestricciones();
+    
     
     cout << "\n\nLista de clusters:\n";
 
     for (int i = 0; i < solucion.size(); i++)
         cout << " " << solucion[i];
     
-    cout << "\nInfeasibilityGreedy: " << par.infeasibilityGreedy(solucion) << endl;
+    cout << "\nRestricciones incumplidas: " << par.infeasibilityGreedy(solucion) << endl;
 
     cout << "\nCENTROIDES:\n";
     par.imprimirCentroides();
-    cout << "\nCLUSTERS:\n";
+    cout << "\n\nCLUSTERS:\n";
     par.imprimirClusters ();
 
-    cout << "\nDISTANCIA INTRA-CLUSTER:\n";
+    cout << "\n\nDISTANCIA INTRA-CLUSTER:\n";
 
     for (int i = 0; i < 7; i++)
         cout << "\nDistancia intra-cluster " << i << ": " << par.distanciaIntracluster(i);
-    
     par.calcularDistancias();
+    par.fitness(solucion);
     //par.imprimirDistancias();
 
     //par.imprimirCentroides();
@@ -45,6 +49,7 @@ void calcular_PAR (const string datos, const string restricciones, const int num
 
     //cout << "\nfitnessBL: " << par.fitness(solucion) << endl;
     cout << endl;
+    
 }
 
 int main (int argc, char ** argv){
@@ -62,7 +67,7 @@ int main (int argc, char ** argv){
     restricciones = argv[2];
     num_clusters = atoi(argv[3]);
 
-    Set_random(unsigned(437534));
+    Set_random(unsigned(3242355));
 
     calcular_PAR (datos, restricciones, num_clusters, "GREEDY");
 

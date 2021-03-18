@@ -13,7 +13,7 @@ void PAR::imprimirRestricciones (){
     for (int i = 0; i < restricciones.size(); i++){
         
         for (int j = 0; j < restricciones[i].size(); j++)
-            cout << restricciones[i][j] << " ";
+            cout << i << " " << j << " :" << restricciones[i][j] << "\n";
         
         cout << "\n";
     }
@@ -59,6 +59,8 @@ PAR::PAR (const string fDatos, const string fRestricciones, const int k){
     num_clusters = k;
 
     leerFicheros (fDatos, fRestricciones);
+    leerFicheros2 (fDatos, fRestricciones);
+    
     clusters.resize(datos.size(), -1);
 
     // Inicializo lista de restricciones
@@ -71,6 +73,7 @@ PAR::PAR (const string fDatos, const string fRestricciones, const int k){
     for (int i = 0; i < datos.size(); i++)
             distancias.push_back(aux);
 
+    //imprimirRestricciones();
 
 }
 
@@ -114,6 +117,14 @@ void PAR::leerFicheros (const string fDatos, const string fRestricciones){
 
     contador = 0;
 
+        
+}
+
+void PAR::leerFicheros2 (const string fDatos, const string fRestricciones){
+        string linea, valor;
+    ifstream ifDatos(fDatos), ifRestricciones(fRestricciones);
+    int contador = 0;
+
     // Cargo el fichero de restricciones
     if (ifRestricciones.is_open()){
         restricciones.resize(contador);
@@ -121,10 +132,13 @@ void PAR::leerFicheros (const string fDatos, const string fRestricciones){
         while (getline(ifRestricciones, linea)){
             stringstream cadena(linea);
             restricciones.resize(contador + 1);
-        
-            while (getline(cadena, valor, ','))
+
+            while (getline(cadena, valor, ',')){
+           
                 restricciones[contador].push_back(stod(valor));
-        
+                
+            }
+          
             contador++;
         }
 
@@ -133,7 +147,7 @@ void PAR::leerFicheros (const string fDatos, const string fRestricciones){
     else   
         cerr << "Error al abrir el fichero " << fRestricciones << "\n";
 
-    
+
 }
 
 double PAR::fitness (vector<int> solucion){
@@ -210,6 +224,7 @@ double PAR::distancia (int posicionPunto, int cluster){
 int PAR::infeasibilityGreedy (vector<int> solucion){
     int infeasibility = 0;
 
+    
     for (int i = 0; i < restricciones.size(); i++)
         for (int j = i+1; j < restricciones[i].size(); j++){
             if (restricciones[i][j] == 1 && solucion[i] != solucion[j])
@@ -217,7 +232,7 @@ int PAR::infeasibilityGreedy (vector<int> solucion){
             else if (restricciones[i][j] == -1 && solucion[i] == solucion[j])
                 infeasibility++;
         }
-
+    
     return infeasibility;
 }
 
@@ -243,14 +258,21 @@ int PAR::infeasibilityGreedy (int posicionPunto, int cluster){
     
     for (int i = 0; i < clusters.size(); i++)
         if (clusters[i] == cluster)
-            if (restricciones[posicionPunto][i] == -1)
+            if (restricciones[posicionPunto][i] == -1){
+                
+                //cout << "\nrestriccion -1:" << posicionPunto << " " << i << " " << clusters[i] << " " << cluster << " " << restricciones[posicionPunto][i];
                 infeasibility++;
+            }
 
     for (int i = 0; i < clusters.size(); i++)
-        if (clusters[i] != cluster)  
-            if (restricciones[posicionPunto][i] == 1)
+        if (clusters[i] != cluster && clusters[i] != -1)  
+            if (restricciones[posicionPunto][i] == 1 && posicionPunto != i){
+                //if (posicionPunto == 0)
+                //cout << "\nrestriccion 1:" << posicionPunto << " " << i;
+
                 infeasibility++;
-    
+            }
+            
     return infeasibility;
 }
 
@@ -273,10 +295,13 @@ void PAR::actualizarCentroides (){
     vector<int> contador_clusters(num_clusters, 0);
     vector< vector <double> > aux (centroides); // DUDA BORRAR
     vector<double> aux2;
+    vector<double> aux3;
 
     for (int i = 0; i < clusters.size(); i++)
-        if (clusters[i] == -1)
+        if (clusters[i] == -1){
+            cerr << "\n\nESTE MENSAJE NO DEBERIA SALIR\n\n";
             return;
+        }
     
     for (int i = 0; i < clusters.size(); i++)
         contador_clusters[clusters[i]]++;
@@ -288,33 +313,18 @@ void PAR::actualizarCentroides (){
     for (int i = 0; i < clusters.size(); i++)
         for (int j = 0; j < centroides[clusters[i]].size(); j++){
             centroides[clusters[i]][j] += datos[i][j];
-            contador_clusters[clusters[i]]++;
+            			//std::cout << "\n\tit: " << i << " problema.datos[(*it)][j]: " << datos[i][j];
+
+            //contador_clusters[clusters[i]]++;
         }
-
-    for (int k = 0; k < contador_clusters.size(); k++){
-        if (contador_clusters[k] == 0){
-            centroides.resize(0);
-
-            for (int i = 0; i < num_clusters; i++){
-                aux2.clear();
-                
-                //cerr << "\nCentroide " << i << ": ";
-                
-                for (int j = 0; j < datos[0].size(); j++){
-                    aux2.push_back(Randfloat(0, 1));
-                    //cout << " " << aux[j];
-                }
-
-                centroides.push_back(aux2);
-            }
-
-            return;
-        }
-    }
-
+//cout << "\nPFFFFFFFF2" << endl;
     for (int i = 0; i < num_clusters; i++)
-        for (int j = 0; j < centroides[i].size(); j++)
-            centroides[i][j] = centroides[i][j]/contador_clusters[i];
+        for (int j = 0; j < centroides[i].size(); j++){
+            centroides[i][j] = centroides[i][j]/contador_clusters[i]*1.0;
+            //cout << " " << centroides[i][j];
+        }
+    
+//cout << endl;
 }
 
 void PAR::cambioCluster (vector<int> solucion, int indice, int cluser){
@@ -363,6 +373,10 @@ vector<int> PAR::greedy (){
 
         centroides.push_back(aux);
     }
+
+    //cout << "\nINICIO:";
+
+    //imprimirCentroides();
     
     // Inicializo indices
     for (int i = 0; i < datos.size(); i++)
@@ -376,13 +390,13 @@ vector<int> PAR::greedy (){
         num_iteraciones++;
         
         for (it = indices.begin(); it != indices.end(); ++it){
+            //cout << "\nPOSICION " << *it << " ESTA EN " << clusters[*it];
             cluster_min = clusters[*it];
             incremento_min = 999999999;
             dist_min = 999.0;
 
             for (int i = 0; i < num_clusters; i++){
-                incremento = infeasibilityGreedy(*it, i);
-
+                incremento =  infeasibilityGreedy(*it, i);
                 if (incremento < incremento_min){
                     incremento_min = incremento;
                     cluster_min = i;
@@ -397,13 +411,16 @@ vector<int> PAR::greedy (){
             }
 
             if (cluster_min != clusters[*it]){
+	            //cout << "\nCAMBIO: "  << "POSICION " << *it << " RESTRICCIONES " << incremento_min << " DISTANCIA " << dist_min << " CLUSTER " << cluster_min;
                 clusters[*it] = cluster_min;
                 hay_cambio_C = true;
             } 
         }
         
         // Actualizar el centroide i promediando las instancias de su cluster asociado i
+        //cout << "\n\nCAMBIO: ACTUALIZO CENTROIDES";
         actualizarCentroides ();
+        //imprimirCentroides();
     } while(hay_cambio_C);
 
     cout << "\nNumero de iteraciones: " << num_iteraciones << endl;

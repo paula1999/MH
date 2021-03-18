@@ -12,6 +12,7 @@ class PAR{
     public:
         PAR (const string f_datos, const string f_restricciones, const int k);
         void leerFicheros (const string fDatos, const string fRestricciones);
+        void leerFicheros2 (const string fDatos, const string fRestricciones);
         double fitness (vector<int> solucion);
         double distanciaIntracluster (int cluster);
         double desviacionGeneral (vector<int> solucion);
@@ -28,6 +29,7 @@ class PAR{
         void imprimirClusters ();
         void imprimirDistancias ();
         void calcularDistancias ();
+        void imprimirRestricciones ();
 
     private:
         vector< vector<int> > restricciones; // Matriz de restricciones
@@ -42,7 +44,7 @@ class PAR{
 
         vector< vector<double> > distancias;
 
-        void imprimirRestricciones ();
+        
         void imprimirDatos ();
         
 

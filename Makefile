@@ -19,7 +19,7 @@ $(OBJ)/random.o: $(SRC)/random.cpp
 
 $(OBJ)/PAR.o: $(SRC)/PAR.cpp
 	g++ -c $^ -I$(INCLUDE) -o $@
-
+	
 clean:
 	-rm $(OBJ)/*.o
 	-rm $(BIN)/*
