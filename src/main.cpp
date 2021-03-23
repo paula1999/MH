@@ -11,6 +11,7 @@ void calcular_PAR (const string datos, const string restricciones, const int num
     PAR par(datos, restricciones, num_clusters);
     double tiempo = 0.0;
 
+    /*
     // GREEDY
     solucion = par.greedy();
     //cout << "\n\nTIEMPO: " << tiempo;
@@ -22,8 +23,9 @@ void calcular_PAR (const string datos, const string restricciones, const int num
     for (int i = 0; i < solucion.size(); i++)
         cout << " " << solucion[i];
     
-    cout << "\nRestricciones incumplidas: " << par.infeasibilityGreedy(solucion) << endl;
-
+    cout << "\nTasa_inf: " << par.infeasibilityGreedy(solucion);
+    par.fitness(solucion);
+    
     cout << "\nCENTROIDES:\n";
     par.imprimirCentroides();
     cout << "\n\nCLUSTERS:\n";
@@ -32,22 +34,41 @@ void calcular_PAR (const string datos, const string restricciones, const int num
     cout << "\n\nDISTANCIA INTRA-CLUSTER:\n";
 
     for (int i = 0; i < 7; i++)
-        cout << "\nDistancia intra-cluster " << i << ": " << par.distanciaIntracluster(i);
-    par.calcularDistancias();
-    par.fitness(solucion);
+        cout << "\nDistancia intra-cluster " << i << ": " << par.distanciaIntracluster(i, solucion);
+    //par.calcularDistancias();
+    //par.fitness(solucion);
     //par.imprimirDistancias();
 
     //par.imprimirCentroides();
     //cout << par.desviacionGeneral(solucion);
     
+*/
    // BUSQUEDA LOCAL
-    //solucion = par.busquedaLocal();
-    //cout << "\nBL:\nLista de clusters:\n";
+   
+    solucion = par.busquedaLocal();
+    
+    
+    cout << "\nBL:\nLista de clusters:\n";
 
-    //for (int i = 0; i < solucion.size(); i++)
-        //cout << " " << solucion[i];
+    for (int i = 0; i < solucion.size(); i++)
+        cout << " " << solucion[i];
 
-    //cout << "\nfitnessBL: " << par.fitness(solucion) << endl;
+    cout << "\nfitnessBL: " << par.fitnessBL(solucion) << endl;
+    
+    cout << "\nTasa_inf: " << par.infeasibilityBL(solucion);
+    
+    cout << "\nCENTROIDES:\n";
+    par.imprimirCentroides();
+    cout << "\n\nCLUSTERS:\n";
+    par.imprimirClusters ();
+
+    cout << "\n\nDISTANCIA INTRA-CLUSTER:\n";
+
+    for (int i = 0; i < 7; i++)
+        cout << "\nDistancia intra-cluster " << i << ": " << par.distanciaIntracluster(i, solucion);
+    
+    cout << "\nERROR_DIST: " << (par.desviacionGeneral(solucion) - 0.904799856193481);
+    
     cout << endl;
     
 }
@@ -67,7 +88,7 @@ int main (int argc, char ** argv){
     restricciones = argv[2];
     num_clusters = atoi(argv[3]);
 
-    Set_random(unsigned(3242355));
+    Set_random(unsigned(23444));
 
     calcular_PAR (datos, restricciones, num_clusters, "GREEDY");
 

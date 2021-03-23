@@ -14,14 +14,15 @@ class PAR{
         void leerFicheros (const string fDatos, const string fRestricciones);
         void leerFicheros2 (const string fDatos, const string fRestricciones);
         double fitness (vector<int> solucion);
-        double distanciaIntracluster (int cluster);
+        double fitnessBL (vector<int> solucion);
+        double distanciaIntracluster (int cluster, vector<int> solucion);
         double desviacionGeneral (vector<int> solucion);
         double distancia (int posicionPunto, int cluster);
         int infeasibilityGreedy (vector<int> solucion);
         int infeasibilityGreedy (int posicionPunto, int cluster);
         int infeasibilityBL (vector<int> solucion);
         void actualizarCentroides ();
-        void cambioCluster (vector<int> solucion, int indice, int cluser);
+        bool cambioCluster (vector<int> & solucion, int indice, int cluster);
         bool clusterVacio (vector<int> solucion);
         vector<int> greedy ();
         vector<int> busquedaLocal ();
@@ -30,17 +31,19 @@ class PAR{
         void imprimirDistancias ();
         void calcularDistancias ();
         void imprimirRestricciones ();
+        bool parValido (pair<int, int> par, vector<int> solucion);
 
     private:
         vector< vector<int> > restricciones; // Matriz de restricciones
+        vector< vector<int> > listaRestricciones; // Lista de restricciones
         
         vector< vector<double> > datos; // Matriz de datos
         vector<int> clusters; // Contiene los indices a los clusters de cada punto
         vector< vector<double> > centroides; // Matriz con los centros de cada cluster
 
-        list <tuple <int, int, int> > listaRestricciones;
-        vector<int> restriccionesML;
-        vector<int> restriccionesCL;
+        
+        vector< vector<int> > restriccionesML;
+        vector< vector<int> > restriccionesCL;
 
         vector< vector<double> > distancias;
 
