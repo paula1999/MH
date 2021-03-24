@@ -310,7 +310,7 @@ int PAR::infeasibilityGreedy (int posicionPunto, int cluster){
 
 int PAR::infeasibilityBL (vector<int> solucion){
     int infeasibility = 0;
-
+    
     for (int i = 0; i < restriccionesML.size(); i++)
         if (solucion[restriccionesML[i][0]] != solucion[restriccionesML[i][1]])
             infeasibility++;
@@ -336,7 +336,8 @@ void PAR::actualizarCentroides (){
     
     for (int i = 0; i < clusters.size(); i++)
         contador_clusters[clusters[i]]++;
-    
+
+    centroides.resize(0);
     centroides.resize(num_clusters);
 
     for (int i = 0; i < centroides.size(); i++)
@@ -510,9 +511,9 @@ vector<int> PAR::busquedaLocal (){
     vector<int> indicesDatos, indicesVecindarios;
     vector<int>::iterator itDatos, itVecindarios;
     vector<int> solucion(clusters.size());
-    bool recalcular, hay_mejora;
+    bool recalcular, hay_mejora, nuevainf;
     const int nEvaluacionesMAX = 100000;
-    int nEvaluaciones = 0;
+    int nEvaluaciones = 0, antiguainf;
     vector< pair<int, int> > vecindarioVirtual;
     pair<int, int> par;
     double fit_min, fit;
@@ -531,7 +532,7 @@ vector<int> PAR::busquedaLocal (){
     actualizarCentroides();
 
     vector<int> nuevaSolucion(clusters);
-    
+    vector<int> antiguaSolucion(clusters);
     // GENERACION DE VECINOS
 
     // Inicializo indices a los datos
@@ -539,8 +540,8 @@ vector<int> PAR::busquedaLocal (){
         indicesDatos.push_back(i);
 
     // Barajo los indices a los datos
-    random_shuffle(indicesDatos.begin(), indicesDatos.end()); 
-
+    //random_shuffle(indicesDatos.begin(), indicesDatos.end()); 
+/*
     // Vecindario virtual
     for (int i = 0; i < clusters.size(); i++)
         for (int j = 0; j < num_clusters; j++)
@@ -556,9 +557,9 @@ vector<int> PAR::busquedaLocal (){
     // Inicializo indices al vecindario
     for (int i = 0; i < vecindarioVirtual.size(); i++)
         indicesVecindarios.push_back(i);
-
+*/
     // Barajo los indices a los clusters
-    random_shuffle(indicesVecindarios.begin(), indicesVecindarios.end()); 
+    //random_shuffle(indicesVecindarios.begin(), indicesVecindarios.end()); 
 
     double agregado = 0.0, dist, distmax = 0.0, lambda;
     int restrmax;
@@ -582,72 +583,83 @@ vector<int> PAR::busquedaLocal (){
 
     //imprimirCentroides();
     fit_min = fitnessBL(clusters);
-    cout << "\nINICIO fitness min: " << fit_min;
+    /*
+    cout << "\nINICIO\nfitness min: " << fit_min;
     cout << "\ndesviacionGeneral(solucion): " << desviacionGeneral(clusters);
     cout << "\nlambda: " << lambda;
     cout << "\ninfeasibilityBL(solucion): " << infeasibilityBL(clusters);
-
-    cout << "\n\n\nAAAAAAAAAAAAANTES LISTA CLUSTERS:";
-
-    for (int i = 0; i < clusters.size(); i++)
-        cout << " " << clusters[i];
-     cout << "\n" << infeasibilityBL(clusters);
-     
+    */ int infeasibility_min = infeasibilityBL(clusters);
+     int infeasibility_nueva = infeasibility_min;
+     int cluster_min;
     do{
-        random_shuffle(indicesDatos.begin(), indicesDatos.end()); 
-        random_shuffle(indicesVecindarios.begin(), indicesVecindarios.end()); 
+        random_shuffle(indicesDatos.begin(), indicesDatos.end());
 
         hay_mejora = false;
-        //fit_min = fitnessBL(clusters);
-        nEvaluaciones++;
 
         for (itDatos = indicesDatos.begin(); itDatos != indicesDatos.end() && !hay_mejora; ++itDatos){
-            for (itVecindarios = indicesVecindarios.begin(); itVecindarios != indicesVecindarios.end() && !hay_mejora; ++itVecindarios){
-                if (vecindarioVirtual[*itVecindarios].first == *itDatos){
-                    //cout << "\nCOMPARO vecindarioVirtual[*itVecindarios].first " << vecindarioVirtual[*itVecindarios].first << " con *itDatos " << *itDatos << " vecindarioVirtual[*itVecindarios].second " << vecindarioVirtual[*itVecindarios].second;
-                    
-                    if (cambioCluster(nuevaSolucion, *itDatos, vecindarioVirtual[*itVecindarios].second)){
-                        cambioCluster(clusters, *itDatos, vecindarioVirtual[*itVecindarios].second);
-                        actualizarCentroides();
-                        fit = fitnessBL(nuevaSolucion);
-                        nEvaluaciones++;
+            // Vecindario virtual
+            vecindarioVirtual.clear();
 
-                        //cout << "\nCAMBIO CLUSTER: indice " << *itDatos << " cluster " << vecindarioVirtual[*itVecindarios].second << " fitness " << fit << " fitness_min " << fit_min << " cluster_min " << clusters[vecindarioVirtual[*itVecindarios].first] << " ?????? " << vecindarioVirtual[*itVecindarios].first;
+            for (int j = 0; j < num_clusters; j++)
+                if (clusters[*itDatos] != j){
+                    par = make_pair(*itDatos, j);
 
-
-                        if (fit < fit_min){
-                            //cout << "\nHAY MEJORA: " << fit << " < " << fit_min;
-                            fit_min = fit;
-                            hay_mejora = true;
-                            //if (nEvaluaciones % 100 == 0)
-                                //cerr << " " << nEvaluaciones;
-                            //cambioCluster(clusters, *itDatos, vecindarioVirtual[*itVecindarios].second);
-                            //actualizarCentroides();
-                            //imprimirCentroides();
-                        }
-                        else{
-                            cambioCluster(clusters, *itDatos, clusters[vecindarioVirtual[*itVecindarios].first]);
-                            actualizarCentroides();
-                        }
-                        
-                    }
-                    
+                    if (parValido(par, clusters))
+                        vecindarioVirtual.push_back(par);
                 }
-                
 
+            // Inicializo indices al vecindario
+            indicesVecindarios.clear();
+            
+            for (int i = 0; i < vecindarioVirtual.size(); i++)
+                indicesVecindarios.push_back(i);
+
+            random_shuffle(indicesVecindarios.begin(), indicesVecindarios.end());
+            
+            for (itVecindarios = indicesVecindarios.begin(); itVecindarios != indicesVecindarios.end() && !hay_mejora; ++itVecindarios){                    
+                if (cambioCluster(nuevaSolucion, *itDatos, vecindarioVirtual[*itVecindarios].second)){
+                    //nuevaSolucion[*itDatos] = vecindarioVirtual[*itVecindarios].second;
+                    antiguaSolucion = clusters;
+                    cluster_min = clusters[*itDatos];
+                    //clusters[*itDatos] = -1;
+                    //cout << "\nnuevaSolucion: " << nuevaSolucion[*itDatos] << " clusers: " << clusters[*itDatos];
+                    
+                    clusters = nuevaSolucion;
+                    //cout << "\nnuevaSolucion: " << nuevaSolucion[*itDatos] << " clusers: " << clusters[*itDatos];
+                    //clusters[*itDatos] = vecindarioVirtual[*itVecindarios].second;
+                    //cout << "\nvecindario: " << vecindarioVirtual[*itVecindarios].second << " clusers: " << clusters[*itDatos];
+
+                    //clusters = nuevaSolucion;
+                    infeasibility_nueva -= infeasibilityGreedy(*itDatos, cluster_min);
+                    infeasibility_nueva += infeasibilityGreedy(*itDatos, vecindarioVirtual[*itVecindarios].second);
+                    
+                    actualizarCentroides();
+                    fit = desviacionGeneral(clusters) + lambda * infeasibility_nueva;
+                    nEvaluaciones++;
+
+                    if (fit < fit_min){
+                        fit_min = fit;
+                        hay_mejora = true;   
+                        infeasibility_min = infeasibility_nueva;     
+                    }
+                    else{
+                        clusters = antiguaSolucion;
+                        actualizarCentroides();
+                        infeasibility_nueva = infeasibility_min;
+                        nuevaSolucion = clusters;
+                    }    
+                }
             }
-        
         }
     } while (hay_mejora && nEvaluaciones < nEvaluacionesMAX);
     
-    cout << endl << nEvaluaciones;
-
-    cout << "\n\n\nDESPUEEEEEEEES LISTA CLUSTERS:";
-
-    for (int i = 0; i < clusters.size(); i++)
-        cout << " " << clusters[i];
-
-    cout << "\n" << infeasibilityBL(clusters);
+    //cout << endl << nEvaluaciones << endl;
+/*
+    cout << "\nDESPUES\nfitness min: " << fit_min;
+    cout << "\ndesviacionGeneral(solucion): " << desviacionGeneral(clusters);
+    cout << "\nlambda: " << lambda;
+    cout << "\ninfeasibilityBL(solucion): " << infeasibilityBL(clusters);
+*/
     
     return clusters;
 }

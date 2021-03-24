@@ -35,6 +35,10 @@ void calcular_PAR (const string datos, const string restricciones, const int num
 
     for (int i = 0; i < 7; i++)
         cout << "\nDistancia intra-cluster " << i << ": " << par.distanciaIntracluster(i, solucion);
+
+    cout << "\nERROR_DIST: " << (par.desviacionGeneral(solucion) - 0.904799856193481);
+    cout << "\nAGREGADO: " << par.fitness(solucion);
+
     //par.calcularDistancias();
     //par.fitness(solucion);
     //par.imprimirDistancias();
@@ -67,8 +71,8 @@ void calcular_PAR (const string datos, const string restricciones, const int num
     for (int i = 0; i < 7; i++)
         cout << "\nDistancia intra-cluster " << i << ": " << par.distanciaIntracluster(i, solucion);
     
-    cout << "\nERROR_DIST: " << (par.desviacionGeneral(solucion) - 0.904799856193481);
-    
+    cout << "\nERROR_DIST: " << abs(par.desviacionGeneral(solucion) - 0.364290281975566);
+  
     cout << endl;
     
 }
@@ -88,7 +92,7 @@ int main (int argc, char ** argv){
     restricciones = argv[2];
     num_clusters = atoi(argv[3]);
 
-    Set_random(unsigned(23444));
+    Set_random(unsigned(22));
 
     calcular_PAR (datos, restricciones, num_clusters, "GREEDY");
 
