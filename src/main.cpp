@@ -37,7 +37,9 @@ void calcular_PAR (const string datos, const string restricciones, const int num
         fSol.close();
     }
     else   
-        cerr << "Error al abrir el fichero " << rutaSol << "\n";   
+        cerr << "Error al abrir el fichero " << rutaSol << "\n";  
+
+        
 }
 
 int main (int argc, char ** argv){

@@ -43,7 +43,7 @@ ostream & operator << (ostream & os, const PAR & par){
     os << "\n\nError_Dist: " << abs(par.desvGeneral - par.distOptima);
 
     os << "\nTABLA:\n";
-    os << Get_random() << " & " << par.infeasibility << " & " << abs(par.desvGeneral - par.distOptima) << " & " << par.fitness << " & ";
+    os << par.infeasibility << " & " << abs(par.desvGeneral - par.distOptima) << " & " << par.fitness << " & ";
 
 
     return os;
@@ -112,13 +112,13 @@ PAR::PAR (const string fDatos, const string fRestricciones, const int k){
 
     // Inicializo la distancia óptima
     if (fDatos.find("zoo") != string::npos)
-        distOptima = (double) 0.904799856193481;
+        distOptima = 0.904799856193481;
     else if (fDatos.find("glass") != string::npos)
-        distOptima = (double) 0.364290281975566;
+        distOptima = 0.364290281975566;
     else if (fDatos.find("bupa") != string::npos)
-        distOptima = (double) 0.229248049533093;
+        distOptima = 0.229248049533093;
     else
-        distOptima = 999;
+        distOptima = 0;
 
     num_clusters = k;
 
@@ -392,8 +392,10 @@ bool PAR::clusterVacio (vector<int> solucion) const{
     vector<int> contador_clusters(num_clusters, 0);
     bool estaVacio = false;
     
-    for (int i = 0; i < solucion.size(); i++)
+    for (int i = 0; i < solucion.size(); i++){
+        //cout << solucion[i] << " ";
         contador_clusters[solucion[i]]++;
+    }
     
     for (int i = 0; i < contador_clusters.size(); i++)
         if (contador_clusters[i] == 0)
@@ -411,7 +413,7 @@ vector<int> PAR::greedy (){
     int cluster_min, incremento, incremento_min; 
     double dist_min, min = 0.0, max = 1.0; // Los datos estan normalizados
 
-    centroides.resize(0);
+    centroides.clear();
 
     for (int i = 0; i < num_clusters; i++){
         aux.clear();
@@ -463,11 +465,22 @@ vector<int> PAR::greedy (){
         actualizarCentroides ();
     } while(hay_cambio_C);
 
-    desvGeneral = desviacionGeneral();
-    fitness = fitnessGreedy();
-    infeasibility = infeasibilityGreedy();
+    
 
-    return clusters;
+    
+    if (!clusterVacio(clusters)){
+        desvGeneral = desviacionGeneral();
+        fitness = fitnessGreedy();
+        infeasibility = infeasibilityGreedy();
+        
+        return clusters;
+    }
+    else{
+        return greedy();
+    }
+    
+
+   //return clusters;
 }
 
 bool PAR::parValido (pair<int, int> par, vector<int> solucion) const{
