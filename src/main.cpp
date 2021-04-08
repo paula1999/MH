@@ -30,6 +30,7 @@ void calcular_PAR (const string datos, const string restricciones, const int num
     if (fSol.is_open()){
         fSol << "Tiempo: " << duration.count() << " milisegundos\n";
         fSol << par;
+        fSol << duration.count() << endl;
 
         cout << "Resultados copiados en " << rutaSol << "\n";
 

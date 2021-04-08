@@ -42,6 +42,10 @@ ostream & operator << (ostream & os, const PAR & par){
     os << "\n\nDESVIACION GENERAL: " << par.desvGeneral;
     os << "\n\nError_Dist: " << abs(par.desvGeneral - par.distOptima);
 
+    os << "\nTABLA:\n";
+    os << Get_random() << " & " << par.infeasibility << " & " << abs(par.desvGeneral - par.distOptima) << " & " << par.fitness << " & ";
+
+
     return os;
 }
 
