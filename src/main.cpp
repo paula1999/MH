@@ -3,97 +3,64 @@
 #include "random.h"
 #include <string>
 #include <chrono>
+#include <fstream>
 
 using namespace std;
 
-void calcular_PAR (const string datos, const string restricciones, const int num_clusters, const string algoritmo){
+void calcular_PAR (const string datos, const string restricciones, const int num_clusters, const string algoritmo, int semilla){
     vector<int> solucion;
     PAR par(datos, restricciones, num_clusters);
-    double tiempo = 0.0;
+    string rutaSol;
+    fstream fSol;
 
-    /*
-    // GREEDY
-    solucion = par.greedy();
-    //cout << "\n\nTIEMPO: " << tiempo;
-    //par.imprimirRestricciones();
-    
-    
-    cout << "\n\nLista de clusters:\n";
+    Set_random(semilla);
+    rutaSol = restricciones + "_" + algoritmo + "_" + to_string(Get_random()) + ".out";
+    fSol.open(rutaSol, fstream::out);
 
-    for (int i = 0; i < solucion.size(); i++)
-        cout << " " << solucion[i];
+    chrono::system_clock::time_point start = chrono::system_clock::now();
     
-    cout << "\nTasa_inf: " << par.infeasibilityGreedy(solucion);
-    par.fitness(solucion);
+    if (algoritmo.compare("Greedy") == 0)
+        solucion = par.greedy();
+    else if (algoritmo.compare("BL") == 0)
+        solucion = par.busquedaLocal();
     
-    cout << "\nCENTROIDES:\n";
-    par.imprimirCentroides();
-    cout << "\n\nCLUSTERS:\n";
-    par.imprimirClusters ();
-
-    cout << "\n\nDISTANCIA INTRA-CLUSTER:\n";
-
-    for (int i = 0; i < 7; i++)
-        cout << "\nDistancia intra-cluster " << i << ": " << par.distanciaIntracluster(i, solucion);
-
-    cout << "\nERROR_DIST: " << (par.desviacionGeneral(solucion) - 0.904799856193481);
-    cout << "\nAGREGADO: " << par.fitness(solucion);
-
-    //par.calcularDistancias();
-    //par.fitness(solucion);
-    //par.imprimirDistancias();
-
-    //par.imprimirCentroides();
-    //cout << par.desviacionGeneral(solucion);
+    chrono::system_clock::time_point stop = chrono::system_clock::now();
+    chrono::milliseconds duration = chrono::duration_cast<chrono::milliseconds>(stop - start);
     
-*/
-   // BUSQUEDA LOCAL
-   
-    solucion = par.busquedaLocal();
-    
-    
-    cout << "\nBL:\nLista de clusters:\n";
+    if (fSol.is_open()){
+        fSol << "Tiempo: " << duration.count() << " milisegundos\n";
+        fSol << par;
 
-    for (int i = 0; i < solucion.size(); i++)
-        cout << " " << solucion[i];
+        cout << "Resultados copiados en " << rutaSol << "\n";
 
-    cout << "\nfitnessBL: " << par.fitnessBL(solucion) << endl;
-    
-    cout << "\nTasa_inf: " << par.infeasibilityBL(solucion);
-    
-    cout << "\nCENTROIDES:\n";
-    par.imprimirCentroides();
-    cout << "\n\nCLUSTERS:\n";
-    par.imprimirClusters ();
-
-    cout << "\n\nDISTANCIA INTRA-CLUSTER:\n";
-
-    for (int i = 0; i < 7; i++)
-        cout << "\nDistancia intra-cluster " << i << ": " << par.distanciaIntracluster(i, solucion);
-    
-    cout << "\nERROR_DIST: " << abs(par.desviacionGeneral(solucion) - 0.364290281975566);
-  
-    cout << endl;
-    
+        fSol.close();
+    }
+    else   
+        cerr << "Error al abrir el fichero " << rutaSol << "\n";   
 }
 
 int main (int argc, char ** argv){
-    string datos, restricciones;
+    string datos, restricciones, ruta_data = "data/";
     int num_clusters;
+    unsigned long semilla;
 
-    if (argc < 4){
+    if (argc < 5){
         cerr << "ERROR en los argumentos.\n";
-        cerr << "Formato: " << argv[0] << " <fichero_datos.dat> <fichero_restricciones.const> <numero_clusters> \n";
+        cerr << "Formato: " << argv[0] << " <fichero_datos.dat> <fichero_restricciones.const> <numero_clusters> <semilla>\n";
 
         exit(-1);
     }
 
-    datos = argv[1];
-    restricciones = argv[2];
+    datos = ruta_data + argv[1];
+    restricciones = ruta_data + argv[2];
     num_clusters = atoi(argv[3]);
+    semilla = atoi(argv[4]);
 
-    Set_random(unsigned(22));
+    cout << "\nEjecutando algoritmo Greedy...\n";
 
-    calcular_PAR (datos, restricciones, num_clusters, "GREEDY");
+    calcular_PAR (datos, restricciones, num_clusters, "Greedy", semilla);
 
+    cout << "\nEjecutando algoritmo Busqueda Local...\n";
+
+    calcular_PAR (datos, restricciones, num_clusters, "BL", semilla);
 }

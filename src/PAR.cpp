@@ -9,38 +9,64 @@
 
 using namespace std;
 
-void PAR::imprimirRestricciones (){
-    for (int i = 0; i < restricciones.size(); i++){
+ostream & operator << (ostream & os, const PAR & par){
+    os << "\nLista de asignaciones a los clusters:";
+
+    for (int i = 0; i < par.clusters.size(); i++)
+        os << " " << par.clusters[i];
+            
+    os << "\n\nInfeasable: " << par.infeasibility;
+    os << "\n\nAgregado: " << par.fitness;
+    os << "\n\nRestricciones maximas: " << par.restrMax;
+    os << "\n\nDistancia maxima: " << par.distMax;
+
+    os << "\n\nCLUSTERS:\n";
+    
+    for (int i = 0; i < par.num_clusters; i++){
+        os << "\nCluster " << i << ": ";
         
+        for (int j = 0; j < par.clusters.size(); j++)
+            if (par.clusters[j] == i)
+                os << j << " ";
+    }
+
+    os << "\n\nCENTROIDES:\n";
+    
+    for (int i = 0; i < par.centroides.size(); i++){
+        os << "\nCentroide " << i << ": ";
+        
+        for (int j = 0; j < par.centroides[i].size(); j++)
+            os << par.centroides[i][j] << " ";
+    }
+
+    os << "\n\nDESVIACION GENERAL: " << par.desvGeneral;
+    os << "\n\nError_Dist: " << abs(par.desvGeneral - par.distOptima);
+
+    return os;
+}
+
+void PAR::imprimirRestricciones () const{
+    cout <<"\n\n\nMATRIZ:\n";
+    
+    for (int i = 0; i < restricciones.size(); i++){
         for (int j = 0; j < restricciones[i].size(); j++)
-            cout << i << " " << j << " :" << restricciones[i][j] << "\n";
+            cout << restricciones[i][j] << " ";
         
         cout << "\n";
     }
 
     cout <<"\n\n\nLISTA ML:\n";
 
-
-    for (int i = 0; i < restriccionesML.size(); i++){   
-        for (int j = 0; j < restriccionesML[i].size(); j++)
-                cout << i << " " << j << " :" << restriccionesML[i][j] << "\n";
-        
-        cout << "\n";
-    }
+    for (int i = 0; i < restriccionesML.size(); i++)
+        cout << "(" << restriccionesML[i][0] << "," << restriccionesML[i][1] << "), ";
 
     cout <<"\n\n\nLISTA CL:\n";
 
-
-    for (int i = 0; i < restriccionesCL.size(); i++){   
-        for (int j = 0; j < restriccionesCL[i].size(); j++)
-                cout << i << " " << j << " :" << restriccionesCL[i][j] << "\n";
-        
-        cout << "\n";
-    }
-
+    for (int i = 0; i < restriccionesCL.size(); i++)
+        cout << "(" << restriccionesCL[i][0] << "," << restriccionesCL[i][1] << "), ";
 }
 
-void PAR::imprimirDatos (){
+void PAR::imprimirDatos () const{
     for (int i = 0; i < datos.size(); i++){
         for (int j = 0; j < datos[i].size(); j++)
             cout << datos[i][j] << " ";
@@ -49,25 +75,26 @@ void PAR::imprimirDatos (){
     }
 }
 
-void PAR::imprimirCentroides (){
+void PAR::imprimirCentroides () const{
     for (int i = 0; i < centroides.size(); i++){
         cout << "\nCentroide " << i << ": ";
+        
         for (int j = 0; j < centroides[i].size(); j++)
             cout << centroides[i][j] << " ";
     }
 }
 
-void PAR::imprimirClusters (){
+void PAR::imprimirClusters () const{
     for (int i = 0; i < num_clusters; i++){
         cout << "\nCluster " << i << ": ";
-        for (int j = 0; j < clusters.size(); j++){
+        
+        for (int j = 0; j < clusters.size(); j++)
             if (clusters[j] == i)
                 cout << j << " ";
-        }
     }
 }
 
-void PAR::imprimirDistancias (){
+void PAR::imprimirDistancias () const{
     for (int i = 0; i < distancias.size(); i++){
         cout << "\n";
 
@@ -79,10 +106,20 @@ void PAR::imprimirDistancias (){
 PAR::PAR (const string fDatos, const string fRestricciones, const int k){
     vector<int> aux2;
 
+    // Inicializo la distancia óptima
+    if (fDatos.find("zoo") != string::npos)
+        distOptima = (double) 0.904799856193481;
+    else if (fDatos.find("glass") != string::npos)
+        distOptima = (double) 0.364290281975566;
+    else if (fDatos.find("bupa") != string::npos)
+        distOptima = (double) 0.229248049533093;
+    else
+        distOptima = 999;
+
     num_clusters = k;
 
-    leerFicheros (fDatos, fRestricciones);
-    leerFicheros2 (fDatos, fRestricciones);
+    leerFicheroDatos (fDatos);
+    leerFicheroRestricciones (fRestricciones);
     
     clusters.resize(datos.size(), -1);
 
@@ -105,25 +142,33 @@ PAR::PAR (const string fDatos, const string fRestricciones, const int k){
     
     for (int i = 0; i < datos.size(); i++)
         distancias.push_back(aux);
+
+    calcularDistMax();
+    
+    restrMax = restriccionesML.size() + restriccionesCL.size(); // Calculo numero de restricciones maximas
+    lambda = distMax/restrMax;
+    infeasibility = -1;
+    desvGeneral = -1;
+    fitness = -1;
 }
 
 void PAR::calcularDistancias (){
     double dist = 0.0;
 
-    for (int i = 0; i < datos.size(); i++){
+    for (int i = 0; i < datos.size(); i++)
         for (int j = i+1; j < datos.size(); j++){
             dist = 0.0;
+            
             for (int k = 0; k < datos[i].size(); k++)
                 dist += (datos[i][k] - datos[j][k]) * (datos[i][k] - datos[j][k]);
 
             distancias[i][j] = sqrt(dist);
         }
-    }
 }
 
-void PAR::leerFicheros (const string fDatos, const string fRestricciones){
+void PAR::leerFicheroDatos (const string fDatos){
     string linea, valor;
-    ifstream ifDatos(fDatos), ifRestricciones(fRestricciones);
+    ifstream ifDatos(fDatos);
     int contador = 0;
 
     // Cargo el fichero de datos
@@ -144,15 +189,11 @@ void PAR::leerFicheros (const string fDatos, const string fRestricciones){
     }
     else   
         cerr << "Error al abrir el fichero " << fDatos << "\n";
-
-    contador = 0;
-
-        
 }
 
-void PAR::leerFicheros2 (const string fDatos, const string fRestricciones){
-        string linea, valor;
-    ifstream ifDatos(fDatos), ifRestricciones(fRestricciones);
+void PAR::leerFicheroRestricciones (const string fRestricciones){
+    string linea, valor;
+    ifstream ifRestricciones(fRestricciones);
     int contador = 0;
 
     // Cargo el fichero de restricciones
@@ -163,11 +204,8 @@ void PAR::leerFicheros2 (const string fDatos, const string fRestricciones){
             stringstream cadena(linea);
             restricciones.resize(contador + 1);
 
-            while (getline(cadena, valor, ',')){
-           
+            while (getline(cadena, valor, ','))
                 restricciones[contador].push_back(stod(valor));
-                
-            }
           
             contador++;
         }
@@ -176,49 +214,37 @@ void PAR::leerFicheros2 (const string fDatos, const string fRestricciones){
     }
     else   
         cerr << "Error al abrir el fichero " << fRestricciones << "\n";
-
-
 }
 
-double PAR::fitness (vector<int> solucion){
-    double lambda, dist = 0.0, distmax = 0.0;
-    int restrmax = 0;
-    double agregado;
+void PAR::calcularDistMax(){
+    double dist = 0.0, dMax = 0.0;
 
-    // DUDA hacer funcion para calcular lambda y si eso meterlo en una variable
     // Calculo mayor distancia
     for (int i = 0; i < datos.size(); i++){
         for (int j = i+1; j < datos.size(); j++){
             dist = 0.0;
+            
             for (int k = 0; k < datos[i].size(); k++)
                 dist += (datos[i][k] - datos[j][k]) * (datos[i][k] - datos[j][k]);
 
             dist = sqrt(dist);
             
-            if (dist > distmax)
-                distmax = dist;
+            if (dist > dMax)
+                dMax = dist;
         }
     }
-    
-    // Calculo numero de restricciones maximas
-    for (int i = 0; i < restricciones.size(); i++)
-        for (int j = i+1; j < restricciones[i].size(); j++)
-            if (restricciones[i][j] == 1 || restricciones[i][j] == -1)
-                restrmax++;
-    
-    lambda = distmax/restrmax;
-    agregado = (desviacionGeneral(solucion) + lambda * infeasibilityGreedy(solucion));
-    /*
-    cout << "\nLambda: " << lambda;
-    cout << "\nDistancia maxima: " << distmax;
-    cout << "\nRestricciones maxima: " << restrmax;
-    cout << "\nError distancias: " << desviacionGeneral(solucion);
-    cout << "\nAgregado: " << agregado;
-    */
-    return agregado;
+
+    distMax = dMax;
 }
 
-double PAR::distanciaIntracluster (int cluster, vector<int> solucion){
+
+double PAR::fitnessGreedy (){
+    fitness = desviacionGeneral() + lambda * infeasibilityGreedy();
+    
+    return fitness;
+}
+
+double PAR::distanciaIntracluster (int cluster, const vector<int> solucion){
     double suma = 0.0, aux = 0.0;
     int tam = 0;
 
@@ -226,9 +252,8 @@ double PAR::distanciaIntracluster (int cluster, vector<int> solucion){
         aux = 0.0;
 
         if (solucion[i] == cluster){
-            for (int j = 0; j < datos[i].size(); j++){
+            for (int j = 0; j < datos[i].size(); j++)
                 aux += (datos[i][j]-centroides[cluster][j]) * (datos[i][j]-centroides[cluster][j]);
-            }
 
             suma += sqrt(aux);
             tam++;
@@ -238,16 +263,20 @@ double PAR::distanciaIntracluster (int cluster, vector<int> solucion){
     return suma/tam;
 }
 
-double PAR::desviacionGeneral (vector<int> solucion){
+double PAR::desviacionGeneral (){
     double suma = 0.0;
 
+    actualizarCentroides();
+    
     for (int i = 0; i < num_clusters; i++)
-        suma += distanciaIntracluster(i, solucion);
+        suma += distanciaIntracluster(i, clusters);
 
-    return suma/num_clusters;
+    desvGeneral = suma/num_clusters;
+
+    return desvGeneral;
 }
 
-double PAR::distancia (int posicionPunto, int cluster){
+double PAR::distancia (int posicionPunto, int cluster) const{
     double suma = 0.0;
 
     for (int i = 0; i < datos[posicionPunto].size(); i++)
@@ -256,83 +285,76 @@ double PAR::distancia (int posicionPunto, int cluster){
     return sqrt(suma);
 }
 
-int PAR::infeasibilityGreedy (vector<int> solucion){
-    int infeasibility = 0;
+int PAR::infeasibilityGreedy () const{
+    int infeas = 0;
 
-    
     for (int i = 0; i < restricciones.size(); i++)
         for (int j = i+1; j < restricciones[i].size(); j++){
-            if (restricciones[i][j] == 1 && solucion[i] != solucion[j])
-                infeasibility++;
-            else if (restricciones[i][j] == -1 && solucion[i] == solucion[j])
-                infeasibility++;
+            if (restricciones[i][j] == 1 && clusters[i] != clusters[j])
+                infeas++;
+            else if (restricciones[i][j] == -1 && clusters[i] == clusters[j])
+                infeas++;
         }
     
-    return infeasibility;
+    return infeas;
 }
 
-
-int PAR::infeasibilityGreedy (int posicionPunto, int cluster){
-    int infeasibility = 0;
-
-    /*
-    // Primera forma: 
-    vector<int> aux(clusters); // aux = clusters
-    
-    aux[posicionPunto] = cluster;
-
-    for (int i = 0; i < restricciones.size(); i++)
-        for (int j = i+1; j < restricciones[i].size(); j++){
-            if (restricciones[i][j] == 1 && aux[i] != aux[j])
-                infeasibility++;
-            else if (restricciones[i][j] == -1 && aux[i] == aux[j])
-                infeasibility++;   
-        }
-    */
-    // Segunda forma
+int PAR::infeasibilityCluster (int posicionPunto, int cluster) const{
+    int infeas = 0;
     
     for (int i = 0; i < clusters.size(); i++)
         if (clusters[i] == cluster)
-            if (restricciones[posicionPunto][i] == -1){
-                //cout << "\nrestriccion -1:" << posicionPunto << " " << i << " " << clusters[i] << " " << cluster << " " << restricciones[posicionPunto][i];
-                infeasibility++;
-            }
+            if (restricciones[posicionPunto][i] == -1)
+                infeas++;
 
     for (int i = 0; i < clusters.size(); i++)
         if (clusters[i] != cluster && clusters[i] != -1)  
-            if (restricciones[posicionPunto][i] == 1 && posicionPunto != i){
-                //cout << "\nrestriccion 1:" << posicionPunto << " " << i;
-                infeasibility++;
-            }
+            if (restricciones[posicionPunto][i] == 1 && posicionPunto != i)
+                infeas++;
             
-    return infeasibility;
+    return infeas;
 }
 
-int PAR::infeasibilityBL (vector<int> solucion){
-    int infeasibility = 0;
+int PAR::infeasibilityBL () const{
+    int infeas = 0;
     
     for (int i = 0; i < restriccionesML.size(); i++)
-        if (solucion[restriccionesML[i][0]] != solucion[restriccionesML[i][1]])
-            infeasibility++;
+        if (clusters[restriccionesML[i][0]] != clusters[restriccionesML[i][1]])
+            infeas++;
 
     for (int i = 0; i < restriccionesCL.size(); i++)
-        if (solucion[restriccionesCL[i][0]] == solucion[restriccionesCL[i][1]])
-            infeasibility++;
+        if (clusters[restriccionesCL[i][0]] == clusters[restriccionesCL[i][1]])
+            infeas++;
     
-    return infeasibility;
+    return infeas;
+}
+
+int PAR::infeasibilityBL (int posicionPunto, int cluster) const{
+    int infeas = 0;
+
+    for (int i = 0; i < restriccionesML.size(); i++){
+        if (restriccionesML[i][0] == posicionPunto && cluster != clusters[restriccionesML[i][1]])
+            infeas++;
+        else if (restriccionesML[i][1] == posicionPunto && cluster != clusters[restriccionesML[i][0]])
+            infeas++;
+    }
+
+    for (int i = 0; i < restriccionesCL.size(); i++){
+        if (restriccionesCL[i][0] == posicionPunto && cluster == clusters[restriccionesCL[i][1]])
+            infeas++;
+        else if (restriccionesCL[i][1] == posicionPunto && cluster == clusters[restriccionesCL[i][0]])
+            infeas++;
+    }
+    
+    return infeas;
 }
 
 void PAR::actualizarCentroides (){
     vector<int> contador_clusters(num_clusters, 0);
-    vector< vector <double> > aux (centroides); // DUDA BORRAR
-    vector<double> aux2;
-    vector<double> aux3;
 
     for (int i = 0; i < clusters.size(); i++)
-        if (clusters[i] == -1){
-            cerr << "\n\nESTE MENSAJE NO DEBERIA SALIR\n\n";
+        if (clusters[i] == -1)
             return;
-        }
     
     for (int i = 0; i < clusters.size(); i++)
         contador_clusters[clusters[i]]++;
@@ -344,23 +366,15 @@ void PAR::actualizarCentroides (){
         centroides[i].resize(datos[0].size(), 0.0);
  
     for (int i = 0; i < clusters.size(); i++)
-        for (int j = 0; j < centroides[clusters[i]].size(); j++){
+        for (int j = 0; j < centroides[clusters[i]].size(); j++)
             centroides[clusters[i]][j] += datos[i][j];
-            //cerr << "\n\tit: " << i << " problema.datos[(*it)][j]: " << datos[i][j];
-            //contador_clusters[clusters[i]]++;
-        }
-//cout << "\nPFFFFFFFF2" << endl;
+
     for (int i = 0; i < num_clusters; i++)
-        for (int j = 0; j < centroides[i].size(); j++){
+        for (int j = 0; j < centroides[i].size(); j++)
             centroides[i][j] = centroides[i][j]/contador_clusters[i]*1.0;
-            //cout << " " << centroides[i][j];
-        }
-    
-//cout << endl;
 }
 
 bool PAR::cambioCluster (vector<int> & solucion, int indice, int cluster){
-    // si el indice hace que un cluster se quede vacio,  NO CAMBIAR CLUSTER
     if (parValido(make_pair(indice, cluster), solucion)){
         solucion[indice] = cluster;
         
@@ -370,7 +384,7 @@ bool PAR::cambioCluster (vector<int> & solucion, int indice, int cluster){
         return false;
 }
 
-bool PAR::clusterVacio (vector<int> solucion){
+bool PAR::clusterVacio (vector<int> solucion) const{
     vector<int> contador_clusters(num_clusters, 0);
     bool estaVacio = false;
     
@@ -390,17 +404,8 @@ vector<int> PAR::greedy (){
     vector<int>::iterator it;
     bool hay_cambio_C = true;
     const int dim = datos[0].size();
-    int cluster_min, incremento, incremento_min, num_iteraciones = 0; 
-    double dist_min, min = 1.0, max = 0.0; // Los datos estan normalizados
-    
-    // Calculamos el dominio
-    for (int i = 0; i < datos.size(); i++)
-        for (int j = 0; j < datos[i].size(); j++){
-            if (datos[i][j] < min)
-                min = datos[i][j];
-            if (datos[i][j] > max)
-                max = datos[i][j];
-        }
+    int cluster_min, incremento, incremento_min; 
+    double dist_min, min = 0.0, max = 1.0; // Los datos estan normalizados
 
     centroides.resize(0);
 
@@ -412,10 +417,6 @@ vector<int> PAR::greedy (){
 
         centroides.push_back(aux);
     }
-
-    //cout << "\nINICIO:";
-
-    //imprimirCentroides();
     
     // Inicializo indices
     for (int i = 0; i < datos.size(); i++)
@@ -426,16 +427,15 @@ vector<int> PAR::greedy (){
 
     do{
         hay_cambio_C = false;
-        num_iteraciones++;
         
         for (it = indices.begin(); it != indices.end(); ++it){
-            //cout << "\nPOSICION " << *it << " ESTA EN " << clusters[*it];
             cluster_min = clusters[*it];
             incremento_min = 999999999;
             dist_min = 999.0;
 
             for (int i = 0; i < num_clusters; i++){
-                incremento =  infeasibilityGreedy(*it, i);
+                incremento =  infeasibilityCluster(*it, i);
+
                 if (incremento < incremento_min){
                     incremento_min = incremento;
                     cluster_min = i;
@@ -450,24 +450,23 @@ vector<int> PAR::greedy (){
             }
 
             if (cluster_min != clusters[*it]){
-	            //cout << "\nCAMBIO: "  << "POSICION " << *it << " RESTRICCIONES " << incremento_min << " DISTANCIA " << dist_min << " CLUSTER " << cluster_min;
                 clusters[*it] = cluster_min;
                 hay_cambio_C = true;
             } 
         }
         
         // Actualizar el centroide i promediando las instancias de su cluster asociado i
-        //cout << "\n\nCAMBIO: ACTUALIZO CENTROIDES";
         actualizarCentroides ();
-        //imprimirCentroides();
     } while(hay_cambio_C);
 
-    cout << "\nNumero de iteraciones: " << num_iteraciones << endl;
+    desvGeneral = desviacionGeneral();
+    fitness = fitnessGreedy();
+    infeasibility = infeasibilityGreedy();
 
     return clusters;
 }
 
-bool PAR::parValido (pair<int, int> par, vector<int> solucion){
+bool PAR::parValido (pair<int, int> par, vector<int> solucion) const{
     vector<int> aux(solucion);
 
     aux[par.first] = par.second;
@@ -475,45 +474,19 @@ bool PAR::parValido (pair<int, int> par, vector<int> solucion){
     return !clusterVacio(aux);
 }
 
-// DUDA REPITO CODIGO
-double PAR::fitnessBL (vector<int> solucion){
-    double agregado = 0.0, dist, distmax = 0.0, lambda;
-    int restrmax;
-    
-    // Calculo mayor distancia
-    for (int i = 0; i < datos.size(); i++){
-        for (int j = i+1; j < datos.size(); j++){
-            dist = 0.0;
-            for (int k = 0; k < datos[i].size(); k++)
-                dist += (datos[i][k] - datos[j][k]) * (datos[i][k] - datos[j][k]);
+double PAR::fitnessBL (){
+    fitness = desviacionGeneral() + lambda * infeasibilityBL();
 
-            dist = sqrt(dist);
-            
-            if (dist > distmax)
-                distmax = dist;
-        }
-    }
-    
-    // Calculo numero de restricciones maximas
-    restrmax = restriccionesML.size() + restriccionesCL.size();
-    
-    lambda = distmax/restrmax;
-    agregado = (desviacionGeneral(solucion) + lambda * infeasibilityBL(solucion));
-    //cout << "\ndesviacionGeneral(solucion): "<< desviacionGeneral(solucion);
-    //cout << "\nlambda: " << lambda;
-    //cout << "\ninfeasibilityBL(solucion): " << infeasibilityBL(solucion);
-
-    return agregado;
+    return fitness;
 }
 
 
 vector<int> PAR::busquedaLocal (){
     vector<int> indicesDatos, indicesVecindarios;
     vector<int>::iterator itDatos, itVecindarios;
-    vector<int> solucion(clusters.size());
     bool recalcular, hay_mejora, nuevainf;
     const int nEvaluacionesMAX = 100000;
-    int nEvaluaciones = 0, antiguainf;
+    int nEvaluaciones = 0, antiguainf, infeasibility_min, infeasibility_nueva, cluster_min;
     vector< pair<int, int> > vecindarioVirtual;
     pair<int, int> par;
     double fit_min, fit;
@@ -530,73 +503,21 @@ vector<int> PAR::busquedaLocal (){
     } while(recalcular);
  
     actualizarCentroides();
-
-    vector<int> nuevaSolucion(clusters);
-    vector<int> antiguaSolucion(clusters);
-    // GENERACION DE VECINOS
-
+    
     // Inicializo indices a los datos
     for (int i = 0; i < datos.size(); i++)
-        indicesDatos.push_back(i);
+        indicesDatos.push_back(i);    
 
-    // Barajo los indices a los datos
-    //random_shuffle(indicesDatos.begin(), indicesDatos.end()); 
-/*
-    // Vecindario virtual
-    for (int i = 0; i < clusters.size(); i++)
-        for (int j = 0; j < num_clusters; j++)
-            if (clusters[i] != j){
-                par = make_pair(i, j);
+    fit_min = fitnessBL();
+    infeasibility_min = infeasibilityBL();
+    infeasibility_nueva = infeasibility_min;
 
-                if (parValido(par, clusters)){
-                    vecindarioVirtual.push_back(par);
-                    //cout << "\nCLUSTER: " << clusters[i] << " par (" << par.first << "," << par.second << ")";
-                }
-            }
-
-    // Inicializo indices al vecindario
-    for (int i = 0; i < vecindarioVirtual.size(); i++)
-        indicesVecindarios.push_back(i);
-*/
-    // Barajo los indices a los clusters
-    //random_shuffle(indicesVecindarios.begin(), indicesVecindarios.end()); 
-
-    double agregado = 0.0, dist, distmax = 0.0, lambda;
-    int restrmax;
-    
-    // Calculo mayor distancia
-    for (int i = 0; i < datos.size(); i++){
-        for (int j = i+1; j < datos.size(); j++){
-            dist = 0.0;
-            for (int k = 0; k < datos[i].size(); k++)
-                dist += (datos[i][k] - datos[j][k]) * (datos[i][k] - datos[j][k]);
-
-            dist = sqrt(dist);
-            
-            if (dist > distmax)
-                distmax = dist;
-        }
-    }
-    restrmax = restriccionesML.size() + restriccionesCL.size();
-    
-    lambda = distmax/restrmax;
-
-    //imprimirCentroides();
-    fit_min = fitnessBL(clusters);
-    /*
-    cout << "\nINICIO\nfitness min: " << fit_min;
-    cout << "\ndesviacionGeneral(solucion): " << desviacionGeneral(clusters);
-    cout << "\nlambda: " << lambda;
-    cout << "\ninfeasibilityBL(solucion): " << infeasibilityBL(clusters);
-    */ int infeasibility_min = infeasibilityBL(clusters);
-     int infeasibility_nueva = infeasibility_min;
-     int cluster_min;
     do{
         random_shuffle(indicesDatos.begin(), indicesDatos.end());
 
         hay_mejora = false;
 
-        for (itDatos = indicesDatos.begin(); itDatos != indicesDatos.end() && !hay_mejora; ++itDatos){
+        for (itDatos = indicesDatos.begin(); itDatos != indicesDatos.end() && !hay_mejora && nEvaluaciones < nEvaluacionesMAX; ++itDatos){
             // Vecindario virtual
             vecindarioVirtual.clear();
 
@@ -616,50 +537,29 @@ vector<int> PAR::busquedaLocal (){
 
             random_shuffle(indicesVecindarios.begin(), indicesVecindarios.end());
             
-            for (itVecindarios = indicesVecindarios.begin(); itVecindarios != indicesVecindarios.end() && !hay_mejora; ++itVecindarios){                    
-                if (cambioCluster(nuevaSolucion, *itDatos, vecindarioVirtual[*itVecindarios].second)){
-                    //nuevaSolucion[*itDatos] = vecindarioVirtual[*itVecindarios].second;
-                    antiguaSolucion = clusters;
-                    cluster_min = clusters[*itDatos];
-                    //clusters[*itDatos] = -1;
-                    //cout << "\nnuevaSolucion: " << nuevaSolucion[*itDatos] << " clusers: " << clusters[*itDatos];
-                    
-                    clusters = nuevaSolucion;
-                    //cout << "\nnuevaSolucion: " << nuevaSolucion[*itDatos] << " clusers: " << clusters[*itDatos];
-                    //clusters[*itDatos] = vecindarioVirtual[*itVecindarios].second;
-                    //cout << "\nvecindario: " << vecindarioVirtual[*itVecindarios].second << " clusers: " << clusters[*itDatos];
+            for (itVecindarios = indicesVecindarios.begin(); itVecindarios != indicesVecindarios.end() && !hay_mejora && nEvaluaciones < nEvaluacionesMAX; ++itVecindarios){                    
+                cluster_min = clusters[*itDatos];
+                clusters[*itDatos] = vecindarioVirtual[*itVecindarios].second;
+                infeasibility_nueva -= infeasibilityCluster(*itDatos, cluster_min);
+                infeasibility_nueva += infeasibilityCluster(*itDatos, vecindarioVirtual[*itVecindarios].second);
+                fit = desviacionGeneral() + lambda * infeasibility_nueva;
+                nEvaluaciones++;
 
-                    //clusters = nuevaSolucion;
-                    infeasibility_nueva -= infeasibilityGreedy(*itDatos, cluster_min);
-                    infeasibility_nueva += infeasibilityGreedy(*itDatos, vecindarioVirtual[*itVecindarios].second);
-                    
-                    actualizarCentroides();
-                    fit = desviacionGeneral(clusters) + lambda * infeasibility_nueva;
-                    nEvaluaciones++;
-
-                    if (fit < fit_min){
-                        fit_min = fit;
-                        hay_mejora = true;   
-                        infeasibility_min = infeasibility_nueva;     
-                    }
-                    else{
-                        clusters = antiguaSolucion;
-                        actualizarCentroides();
-                        infeasibility_nueva = infeasibility_min;
-                        nuevaSolucion = clusters;
-                    }    
+                if (fit < fit_min){
+                    fit_min = fit;
+                    hay_mejora = true;   
+                    infeasibility_min = infeasibility_nueva;     
                 }
+                else{
+                    clusters[*itDatos] = cluster_min;
+                    infeasibility_nueva = infeasibility_min;
+                }  
             }
         }
     } while (hay_mejora && nEvaluaciones < nEvaluacionesMAX);
     
-    //cout << endl << nEvaluaciones << endl;
-/*
-    cout << "\nDESPUES\nfitness min: " << fit_min;
-    cout << "\ndesviacionGeneral(solucion): " << desviacionGeneral(clusters);
-    cout << "\nlambda: " << lambda;
-    cout << "\ninfeasibilityBL(solucion): " << infeasibilityBL(clusters);
-*/
-    
+    fitness = fitnessBL();
+    infeasibility = infeasibilityBL();
+
     return clusters;
 }
