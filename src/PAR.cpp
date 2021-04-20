@@ -643,10 +643,9 @@ vector<int> PAR::busquedaLocalSuave (vector<int> solucion, const int nFallosMAX)
 
 
 vector<int> PAR::algoritmoGenetico (const int M, const string evolucion, const string operadorCruce, const double probCruce, const double probMutacion){
-    const int nEvaluacionesMAX = 100000;
+    const int tMAX = 100000;
     bool recalcular;
     double fit, fit_min;
-    const int tMAX = 100000;
     int n = datos.size(), nCruces, nMutaciones, pos, c1, c2, nIterMAX, posCMejor;
     vector< vector<int> > pActual, pSiguiente;
     vector<double> pActualFitness;
