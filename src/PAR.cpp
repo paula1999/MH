@@ -116,7 +116,7 @@ PAR::PAR (const string fDatos, const string fRestricciones, const int k){
     else if (fDatos.find("glass") != string::npos)
         distOptima = 0.364290281975566;
     else if (fDatos.find("bupa") != string::npos)
-        distOptima = 0.229248049533093;
+        distOptima = 0.220423749236421;
     else
         distOptima = 0;
 
@@ -478,9 +478,6 @@ vector<int> PAR::greedy (){
     else{
         return greedy();
     }
-    
-
-   //return clusters;
 }
 
 bool PAR::parValido (pair<int, int> par, vector<int> solucion) const{
@@ -579,4 +576,250 @@ vector<int> PAR::busquedaLocal (){
     infeasibility = infeasibilityBL();
 
     return clusters;
+}
+
+
+
+/////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////// PRÁCTICA 2 //////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////
+
+
+vector<int> busquedaLocalSuave (vector<int> solucion, const int nFallosMAX){
+    vector<int> indicesDatos;
+    const int n = datos.size();
+    int nFallos, i, cluster_min, infeasibility_min, infeasibility_nueva;
+    bool mejora;
+    pair<int, int> par;
+    double fit_min, fit;
+
+    // Inicializo indices a los datos
+    for (i = 0; i < n; i++)
+        indicesDatos.push_back(i); 
+
+    random_shuffle(indicesDatos.begin(), indicesDatos.end());
+
+    nFallos = 0;
+    i = 0;
+    mejora = true;
+    fit_min = fitnessBL();
+    infeasibility_min = infeasibilityBL();
+    infeasibility_nueva = infeasibility_min;
+
+    while ((mejora or nFallos < nFallosMAX) and i < n) {
+        mejora = false;
+
+        // Asignar el mejor valor posible a S_RSI[i]
+        for (int j = 0; j < num_clusters; j++){
+            par = make_pair(solucion[indicesDatos[i]], j);
+
+            if (solucion[indicesDatos[i]] != j and parValido(par, solucion)){
+                cluster_min = solucion[indicesDatos[i]];
+                solucion[indicesDatos[i]] = j;
+                infeasibility_nueva -= infeasibilityCluster(indicesDatos[i], cluster_min);
+                infeasibility_nueva += infeasibilityCluster(indicesDatos[i], j);
+                fit = desviacionGeneral() + lambda * infeasibility_nueva;
+                nEvaluaciones++;
+
+                if (fit < fit_min){
+                    fit_min = fit;
+                    mejora = true;   
+                    infeasibility_min = infeasibility_nueva;     
+                }
+                else{
+                    solucion[indicesDatos[i]] = cluster_min;
+                    infeasibility_nueva = infeasibility_min;
+                }
+            }
+        }
+
+        if (!mejora)
+            nFallos++;
+
+        i++;
+    }
+
+    return solucion;
+}
+
+
+vector<int> algoritmoGenetico (const int M, const string evolucion, const string operadorCruce, const double probCruce, const double probMutacion){
+    const int nEvaluacionesMAX = 100000;
+    bool recalcular;
+    double fit, fit_min;
+    int t, n = clusters.size(), nCruces, nMutaciones, pos;
+    vector< pair< vector<int>, double > > pActual, pPadres, pIntermedia(M), pHijos(M);
+    vector< vector<int> > descendiente, mejorCromosoma;
+
+    // Inicializar y evaluar la poblacion actual
+    for (int i = 0; i < M; i++){
+        // Calcular un cromosoma valido
+        do{
+            clusters.clear();
+
+            for (int j = 0; j < n; j++)
+                clusters.push_back(Randint(0, num_clusters-1));
+
+            // Comprobar que ningun cluster se queda vacio
+            recalcular = clusterVacio (clusters);
+        } while(recalcular);
+
+        fit = fitnessBL (); // DUDA cambiar lo de BL
+
+        pActual.push_back(make_pair(clusters, fit));
+    }
+
+    t = 0;  
+
+    do{
+        t++;
+        mejorCromosoma = calcularMejorCromosoma (pActual);
+
+        // Seleccionar P' desde P(t-1)
+        if (evolucion == "G"){
+            pPadres = operadorSeleccion (pActual, pActual.size());
+        }
+        else if (evolucion == "E"){
+            pPadres = operadorSeleccion (pActual, 2);
+        }
+        else{
+            cerr << "ERROR. Parametro 'evolucion' incorrecto\n";
+            return;
+        }
+
+        // Recombinar P'
+        nCruces = Randfloat(0, 1) * probCruce;
+
+        for (int i = 0; i < nCruces; i += 2){
+            if (operadorCruce == "UN"){
+                descendiente = operadorCruceUN (pPadres[i].first, pPadres[i+1].first);
+            }
+            else if (operadorCruce == "SF"){
+                descendiente = operadorCruceSF (pPadres[i].first, pPadres[i+1].first);
+            }
+            else{
+                cerr << "ERROR. Parametro 'operador cruce' incorrecto\n";
+                return;
+            }
+
+            pIntermedia[i].first = descendiente;
+            // DUDA falta evaluar
+        }
+
+        for (int i = nCruces; i < M; i++){
+            pIntermedia[i].first = pPadres[i];
+            // DUDA falta evaluar
+        }
+
+        // Mutar P'
+        nMutaciones = Randfloat(0, 1) * probMutacion;
+
+        for (int i = 0; i < nMutaciones; i++){
+            pos = Randint(0, M-1);
+            descendiente = operadorMutacionUN (pIntermedia[pos].first);
+            
+            pHijos[i].first = descendiente;
+            // DUDA falta evaluar
+        }
+
+        for (int i = nMutaciones; i < M; i++){
+            pHijos[i].first = pIntermedia[i].first;
+            // DUDA falta evaluar
+        }
+
+
+        // Reemplazar P(t) a partir de P(t-1) y P'
+        //pActual = pHijos;
+        //pActual[M-1] = mejorCromosoma;
+
+        // Evaluar P(t)
+        fit = fitnessBL (); // DUDA cambiar BL
+
+    } while (condicion parada ????);
+
+}
+
+vector< pair< vector<int>, double > > operadorSeleccion (const vector< pair< vector<int>, double > > poblacion, const int nIterMAX){
+    const int M = poblacion.size();
+    int ind1, ind2;
+    vector< pair< vector<int>, double > > pPadres;
+
+    for (int i = 0; i < nIterMAX; i++){
+        ind1 = Randint(0, M-1);
+
+        do{
+            ind2 = Randint(0, M-1);
+        } while (ind1 == ind2);
+
+        if (poblacion[ind1].second > poblacion[ind2].second)
+            pPadres.push_back(poblacion[ind2]);
+        else 
+            pPadres.push_back(poblacion[ind1]);
+    }
+
+    return pPadres;
+}
+
+
+vector<int> operadorCruceUN (const vector<int> padre1, const vector<int> padre2){
+    const int n = padre1.size();
+    vector<int> descendencia(n, -1);
+    int pos;
+
+    for (int i = 0; i < n/2; i++){
+        pos = randint (0, n-1);
+        descendencia[pos] = padre1[pos];
+    }
+
+    for (int i = 0; i < n; i++)
+        if (descendencia[i] == -1)
+            descendencia[i] = padre2[i];
+
+    if (clusterVacio(descendencia)){
+        // DUDA como hago la reparacion????
+    }
+
+    return descendencia;
+}
+
+vector<int> operadorCruceSF (const vector<int> padre1, const vector<int> padre2){
+    int r, v, fin, pos;
+    const int n = datos.size();
+    vector<int> descendencia (n);
+
+    r = Randint(0, n-1);
+    v = Randint(0, n-1);
+    fin = ((r + v) % n) - 1;
+
+    // Hacer v iteraciones empezando en r%n
+    for (int i = 0; i < v; i++){
+        pos = (r + i) % n; // DUDA
+        descendencia[pos] = padre1[pos];
+    }
+
+    // Hacer (n-v) iteraciones empezando en (r+v)%n
+    for (int i = 0; (n-v);  i++){
+        pos = (r + v + i) % n; // DUDA
+        descendencia[pos] = padre2[pos];
+    }
+
+    return descendencia;
+}
+
+
+vector<int> operadorMutacionUN (const vector<int> cromosoma){
+    const int n = cromosoma.size();
+    int posGen, gen;
+    
+    posGen = Randint(0, n-1);
+    gen = Randint(0, num_clusters-1);
+
+    cromosoma[posGen] = gen;
+
+
+    if (clusterVacio(cromosoma)){
+        // DUDA como hago la reparacion????
+    }
+
+    return cromosoma;
 }
