@@ -35,12 +35,13 @@ class PAR{
         void imprimirDatos () const;
         bool parValido (pair<int, int> par, vector<int> solucion) const;
         void calcularDistMax();
-        vector<int> busquedaLocalSuave ();
+        vector<int> busquedaLocalSuave (vector<int> solucion, const int nFallosMAX);
         vector<int> algoritmoGenetico (const int M, const string evolucion, const string operadorCruce, const double probCruce, const double probMutacion);
-        vector<int> operadorSeleccion (const vector< pair< vector<int>, double > > poblacion, const int nIterMAX);
+        int calcularMejorCromosoma (const vector<double> pFitness);
+        int operadorSeleccion (const int c1, const int c2, const vector<double> pFitness);
         vector<int> operadorCruceUN (const vector<int> padre1, const vector<int> padre2);
         vector<int> operadorCruceSF (const vector<int> padre1, const vector<int> padre2);
-        vector<int> operadorMutacionUN (const vector<int> cromosoma);
+        vector<int> operadorMutacionUN (vector<int> cromosoma);
 
         friend ostream & operator << (ostream & flujo, const PAR & par);
 

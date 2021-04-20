@@ -585,7 +585,7 @@ vector<int> PAR::busquedaLocal (){
 /////////////////////////////////////////////////////////////////////////////////////////
 
 
-vector<int> busquedaLocalSuave (vector<int> solucion, const int nFallosMAX){
+vector<int> PAR::busquedaLocalSuave (vector<int> solucion, const int nFallosMAX){
     vector<int> indicesDatos;
     const int n = datos.size();
     int nFallos, i, cluster_min, infeasibility_min, infeasibility_nueva;
@@ -619,7 +619,6 @@ vector<int> busquedaLocalSuave (vector<int> solucion, const int nFallosMAX){
                 infeasibility_nueva -= infeasibilityCluster(indicesDatos[i], cluster_min);
                 infeasibility_nueva += infeasibilityCluster(indicesDatos[i], j);
                 fit = desviacionGeneral() + lambda * infeasibility_nueva;
-                nEvaluaciones++;
 
                 if (fit < fit_min){
                     fit_min = fit;
@@ -643,131 +642,157 @@ vector<int> busquedaLocalSuave (vector<int> solucion, const int nFallosMAX){
 }
 
 
-vector<int> algoritmoGenetico (const int M, const string evolucion, const string operadorCruce, const double probCruce, const double probMutacion){
+vector<int> PAR::algoritmoGenetico (const int M, const string evolucion, const string operadorCruce, const double probCruce, const double probMutacion){
     const int nEvaluacionesMAX = 100000;
     bool recalcular;
     double fit, fit_min;
-    int t, n = clusters.size(), nCruces, nMutaciones, pos;
-    vector< pair< vector<int>, double > > pActual, pPadres, pIntermedia(M), pHijos(M);
-    vector< vector<int> > descendiente, mejorCromosoma;
+    const int tMAX = 100000;
+    int n = datos.size(), nCruces, nMutaciones, pos, c1, c2, nIterMAX, posCMejor;
+    vector< vector<int> > pActual, pSiguiente;
+    vector<double> pActualFitness;
+    vector<int> cromosoma, CMejor;
+
+    // TO DO: inicializar parametros para no tener tantos ifs distinguiendo evoluciones y cruces
+    if (evolucion == "G"){
+        nIterMAX = pActual.size();
+    }
+    else if (evolucion == "E"){
+        nIterMAX = 2;
+    }
+    else{
+        cerr << "ERROR. Parametro 'evolucion' incorrecto\n";
+        exit(-1);
+    }
+
 
     // Inicializar y evaluar la poblacion actual
     for (int i = 0; i < M; i++){
         // Calcular un cromosoma valido
         do{
-            clusters.clear();
+            cromosoma.clear();
 
             for (int j = 0; j < n; j++)
-                clusters.push_back(Randint(0, num_clusters-1));
+                cromosoma.push_back(Randint(0, num_clusters-1));
 
             // Comprobar que ningun cluster se queda vacio
-            recalcular = clusterVacio (clusters);
+            recalcular = clusterVacio (cromosoma);
         } while(recalcular);
 
-        fit = fitnessBL (); // DUDA cambiar lo de BL
-
-        pActual.push_back(make_pair(clusters, fit));
+        pActual.push_back(cromosoma);
     }
 
-    t = 0;  
+    // Evaluar la poblacion actual
+    // TO DO crear mejor una funcion para hacer esto
+    for (int i = 0; i < M; i++){
+        clusters = pActual[i];
+        pActualFitness.push_back(fitnessBL()); // DUDA cambiar lo de BL
+    }
 
-    do{
-        t++;
-        mejorCromosoma = calcularMejorCromosoma (pActual);
+    for (int t = 0; t < tMAX; t++){
+        // Guardo el mejor cromosoma
+        posCMejor = calcularMejorCromosoma (pActualFitness);
+        CMejor = pActual[posCMejor];
+
+        ////////////////////////////////// SELECCIÓN //////////////////////////////////
+
+        pSiguiente.clear();
 
         // Seleccionar P' desde P(t-1)
-        if (evolucion == "G"){
-            pPadres = operadorSeleccion (pActual, pActual.size());
+        for (int i = 0; i < nIterMAX; i++){
+            c1 = Randint(0, M-1);
+
+            do{
+                c2 = Randint(0, M-1);
+            } while (c1 == c2);
+
+            pos = operadorSeleccion(c1, c2, pActualFitness);
+
+            pSiguiente.push_back(pActual[pos]);
         }
-        else if (evolucion == "E"){
-            pPadres = operadorSeleccion (pActual, 2);
-        }
-        else{
-            cerr << "ERROR. Parametro 'evolucion' incorrecto\n";
-            return;
-        }
+
+        ////////////////////////////////// CRUCE //////////////////////////////////
 
         // Recombinar P'
-        nCruces = Randfloat(0, 1) * probCruce;
+        nCruces = probCruce * M/2;
 
+        // DUDA esto esta mal pero no se como hacerlo todavia
         for (int i = 0; i < nCruces; i += 2){
             if (operadorCruce == "UN"){
-                descendiente = operadorCruceUN (pPadres[i].first, pPadres[i+1].first);
+                pSiguiente.push_back(operadorCruceUN(pSiguiente[i], pSiguiente[i+1]));
+                pSiguiente.push_back(operadorCruceUN(pSiguiente[i+1], pSiguiente[i]));
             }
             else if (operadorCruce == "SF"){
-                descendiente = operadorCruceSF (pPadres[i].first, pPadres[i+1].first);
+                pSiguiente.push_back(operadorCruceSF(pSiguiente[i], pSiguiente[i+1]));
+                pSiguiente.push_back(operadorCruceSF(pSiguiente[i+1], pSiguiente[i]));
             }
             else{
                 cerr << "ERROR. Parametro 'operador cruce' incorrecto\n";
-                return;
+                exit(-1);
             }
 
-            pIntermedia[i].first = descendiente;
-            // DUDA falta evaluar
+            pSiguiente.erase(pSiguiente.begin());
+            pSiguiente.erase(pSiguiente.begin());
         }
 
-        for (int i = nCruces; i < M; i++){
-            pIntermedia[i].first = pPadres[i];
-            // DUDA falta evaluar
-        }
+        ////////////////////////////////// MUTACIÓN //////////////////////////////////
 
         // Mutar P'
-        nMutaciones = Randfloat(0, 1) * probMutacion;
+        nMutaciones = M * n * probMutacion;
 
         for (int i = 0; i < nMutaciones; i++){
             pos = Randint(0, M-1);
-            descendiente = operadorMutacionUN (pIntermedia[pos].first);
-            
-            pHijos[i].first = descendiente;
-            // DUDA falta evaluar
+            pSiguiente[pos] = operadorMutacionUN (pSiguiente[pos]);
         }
 
-        for (int i = nMutaciones; i < M; i++){
-            pHijos[i].first = pIntermedia[i].first;
-            // DUDA falta evaluar
-        }
-
-
+        ////////////////////////////////// REEMPLAZAR //////////////////////////////////
+        
         // Reemplazar P(t) a partir de P(t-1) y P'
-        //pActual = pHijos;
-        //pActual[M-1] = mejorCromosoma;
+        // TO DO: hay que mirar si CMejor ya esta, entonces no lo meto
+        pActual = pSiguiente;
+        //pActual[M-1] = CMejor;
 
+        ////////////////////////////////// EVALUAR //////////////////////////////////
+        
         // Evaluar P(t)
-        fit = fitnessBL (); // DUDA cambiar BL
+        // TO DO crear mejor una funcion para hacer esto
+        pActualFitness.clear();
+        
+        for (int i = 0; i < M; i++){
+            clusters = pActual[i];
+            pActualFitness.push_back(fitnessBL()); // DUDA cambiar lo de BL
+        }
 
-    } while (condicion parada ????);
-
-}
-
-vector< pair< vector<int>, double > > operadorSeleccion (const vector< pair< vector<int>, double > > poblacion, const int nIterMAX){
-    const int M = poblacion.size();
-    int ind1, ind2;
-    vector< pair< vector<int>, double > > pPadres;
-
-    for (int i = 0; i < nIterMAX; i++){
-        ind1 = Randint(0, M-1);
-
-        do{
-            ind2 = Randint(0, M-1);
-        } while (ind1 == ind2);
-
-        if (poblacion[ind1].second > poblacion[ind2].second)
-            pPadres.push_back(poblacion[ind2]);
-        else 
-            pPadres.push_back(poblacion[ind1]);
     }
 
-    return pPadres;
+    return CMejor;
+}
+
+int PAR::calcularMejorCromosoma (const vector<double> pFitness){
+    int fitnessMin = 999;
+
+    for (int i = 0; i < pFitness.size(); i++)
+        if (pFitness[i] < fitnessMin)
+            fitnessMin = i;
+
+    return fitnessMin;
 }
 
 
-vector<int> operadorCruceUN (const vector<int> padre1, const vector<int> padre2){
+int PAR::operadorSeleccion (const int c1, const int c2, const vector<double> pFitness){
+    if (pFitness[c1] > pFitness[c2])
+        return c2;
+    else 
+        return c1;
+}
+
+
+vector<int> PAR::operadorCruceUN (const vector<int> padre1, const vector<int> padre2){
     const int n = padre1.size();
     vector<int> descendencia(n, -1);
     int pos;
 
     for (int i = 0; i < n/2; i++){
-        pos = randint (0, n-1);
+        pos = Randint (0, n-1);
         descendencia[pos] = padre1[pos];
     }
 
@@ -777,15 +802,16 @@ vector<int> operadorCruceUN (const vector<int> padre1, const vector<int> padre2)
 
     if (clusterVacio(descendencia)){
         // DUDA como hago la reparacion????
+        // TO DO: hacer una funcion que me lo repare
     }
 
     return descendencia;
 }
 
-vector<int> operadorCruceSF (const vector<int> padre1, const vector<int> padre2){
+vector<int> PAR::operadorCruceSF (const vector<int> padre1, const vector<int> padre2){
     int r, v, fin, pos;
     const int n = datos.size();
-    vector<int> descendencia (n);
+    vector<int> cromosoma(n);
 
     r = Randint(0, n-1);
     v = Randint(0, n-1);
@@ -794,20 +820,22 @@ vector<int> operadorCruceSF (const vector<int> padre1, const vector<int> padre2)
     // Hacer v iteraciones empezando en r%n
     for (int i = 0; i < v; i++){
         pos = (r + i) % n; // DUDA
-        descendencia[pos] = padre1[pos];
+        cromosoma[pos] = padre1[pos];
     }
 
     // Hacer (n-v) iteraciones empezando en (r+v)%n
     for (int i = 0; (n-v);  i++){
         pos = (r + v + i) % n; // DUDA
-        descendencia[pos] = padre2[pos];
+        cromosoma[pos] = padre2[pos];
     }
 
-    return descendencia;
+    // DUDA creo que aqui tambien hace falta reparar
+
+    return cromosoma;
 }
 
 
-vector<int> operadorMutacionUN (const vector<int> cromosoma){
+vector<int> PAR::operadorMutacionUN (vector<int> cromosoma){
     const int n = cromosoma.size();
     int posGen, gen;
     
@@ -819,6 +847,7 @@ vector<int> operadorMutacionUN (const vector<int> cromosoma){
 
     if (clusterVacio(cromosoma)){
         // DUDA como hago la reparacion????
+        // TO DO: hacer una funcion que me lo repare
     }
 
     return cromosoma;
