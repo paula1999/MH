@@ -42,6 +42,7 @@ class PAR{
         vector<int> operadorCruceUN (const vector<int> padre1, const vector<int> padre2);
         vector<int> operadorCruceSF (const vector<int> padre1, const vector<int> padre2);
         vector<int> operadorMutacionUN (vector<int> cromosoma);
+        void repararCromosoma (vector<int> & cromosoma);
 
         friend ostream & operator << (ostream & flujo, const PAR & par);
 

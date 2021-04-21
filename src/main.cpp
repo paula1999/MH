@@ -23,6 +23,14 @@ void calcular_PAR (const string datos, const string restricciones, const int num
         solucion = par.greedy();
     else if (algoritmo.compare("BL") == 0)
         solucion = par.busquedaLocal();
+    else if (algoritmo.compare("AGG-UN") == 0)
+        solucion = par.algoritmoGenetico(50, "G", "UN", 0.7, 0.001);
+    else if (algoritmo.compare("AGG-SF") == 0)
+        solucion = par.algoritmoGenetico(50, "G", "SF", 0.7, 0.001);
+    else if (algoritmo.compare("AGE-UN") == 0)
+        solucion = par.algoritmoGenetico(50, "E", "UN", 1.0, 0.001);
+    else if (algoritmo.compare("AGE-SF") == 0)
+        solucion = par.algoritmoGenetico(50, "E", "SF", 1.0, 0.001);
     
     chrono::system_clock::time_point stop = chrono::system_clock::now();
     chrono::milliseconds duration = chrono::duration_cast<chrono::milliseconds>(stop - start);
@@ -59,6 +67,8 @@ int main (int argc, char ** argv){
     num_clusters = atoi(argv[3]);
     semilla = atoi(argv[4]);
 
+    ///////////////////////////////// PRÁCTICA 1 /////////////////////////////////
+    /*
     cout << "\nEjecutando algoritmo Greedy...\n";
 
     calcular_PAR (datos, restricciones, num_clusters, "Greedy", semilla);
@@ -66,4 +76,12 @@ int main (int argc, char ** argv){
     cout << "\nEjecutando algoritmo Busqueda Local...\n";
 
     calcular_PAR (datos, restricciones, num_clusters, "BL", semilla);
+    */
+
+    ///////////////////////////////// PRÁCTICA 2 /////////////////////////////////
+
+    cout << "\nEjecutando algoritmo AGG-UN ...\n";
+
+    calcular_PAR (datos, restricciones, num_clusters, "AGG-UN", semilla);
+
 }
