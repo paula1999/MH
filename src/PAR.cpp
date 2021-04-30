@@ -10,6 +10,9 @@
 using namespace std;
 
 ostream & operator << (ostream & os, const PAR & par){
+    os << "\nTABLA: \t (infeas. \t | \t desvGeneral \t | \t fitness \t ) \n";
+    os << "\t\t\t" << par.infeasibility << " \t\t & \t\t " << par.desvGeneral << " \t & \t " << par.fitness << " \t &";
+
     os << "\nLista de asignaciones a los clusters:";
 
     for (int i = 0; i < par.clusters.size(); i++)
@@ -40,11 +43,7 @@ ostream & operator << (ostream & os, const PAR & par){
     }
 
     os << "\n\nDESVIACION GENERAL: " << par.desvGeneral;
-    os << "\n\nError_Dist: " << abs(par.desvGeneral - par.distOptima);
-
-    os << "\nTABLA:\n";
-    os << par.infeasibility << " & " << abs(par.desvGeneral - par.distOptima) << " & " << par.fitness << " & ";
-
+    //os << "\n\nError_Dist: " << abs(par.desvGeneral - par.distOptima);
 
     return os;
 }
@@ -642,11 +641,11 @@ vector<int> PAR::busquedaLocalSuave (vector<int> solucion, const int nFallosMAX)
 }
 
 
-vector<int> PAR::algoritmoGenetico (const int M, const string evolucion, const string operadorCruce, const double probCruce, const double probMutacion){
-    const int tMAX = 50000;
+vector<int> PAR::algoritmoGenetico (int M, const string evolucion, const string operadorCruce, const double probCruce, const double probMutacion){
+    const int tMAX = 100000;
     bool recalcular;
     double fit, fit_min;
-    int n = datos.size(), nCruces, nMutaciones, pos, c1, c2, nIterMAX, posCMejor;
+    int n = datos.size(), nCruces, nMutaciones, pos, c1, c2, nIterMAX, posCMejor, nFitness, nFitnessMAX = 100000;
     vector< vector<int> > pActual, pSiguiente;
     vector<double> pActualFitness;
     vector<int> cromosoma, CMejor;
@@ -669,10 +668,12 @@ vector<int> PAR::algoritmoGenetico (const int M, const string evolucion, const s
 
     // TO DO: inicializar parametros para no tener tantos ifs distinguiendo evoluciones y cruces
     if (evolucion.compare("G") == 0){
-        nIterMAX = pActual.size();
+        //nIterMAX = pActual.size();
+        M = pActual.size();
     }
     else if (evolucion.compare("E") == 0){
-        nIterMAX = 2;
+        //nIterMAX = 2;
+        M = 2;
     }
     else{
         cerr << "ERROR. Parametro 'evolucion' incorrecto\n";
@@ -686,23 +687,20 @@ vector<int> PAR::algoritmoGenetico (const int M, const string evolucion, const s
         pActualFitness.push_back(fitnessBL()); // DUDA cambiar lo de BL
     }
 
+    nFitness = 0;
     
-    for (int t = 0; t < tMAX; t++){
-        /*
-        if (t % 100 == 0){
-            cerr << t << " ";
-        }
-        */
+    for (int t = 0; nFitness < nFitnessMAX; t++){
         // Guardo el mejor cromosoma
         posCMejor = calcularMejorCromosoma (pActualFitness);
         CMejor = pActual[posCMejor];
-        
+        //cout << "Mejor cromosoma: " << pActualFitness[posCMejor] << endl;
+        //cerr << t << " ";
         ////////////////////////////////// SELECCIÓN //////////////////////////////////
 
         pSiguiente.clear();
 
         // Seleccionar P' desde P(t-1)
-        for (int i = 0; i < nIterMAX; i++){
+        for (int i = 0; i < M; i++){
             c1 = Randint(0, M-1);
 
             do{
@@ -722,9 +720,7 @@ vector<int> PAR::algoritmoGenetico (const int M, const string evolucion, const s
         // DUDA esto esta mal pero no se como hacerlo todavia
         for (int i = 0; i < 2*nCruces; i += 2){
             if (operadorCruce.compare("UN") == 0){
-                clusters = operadorCruceUN(pSiguiente[i], pSiguiente[i+1]);
-                pSiguiente.push_back(clusters);
-                
+                pSiguiente.push_back(operadorCruceUN(pSiguiente[i], pSiguiente[i+1]));           
                 pSiguiente.push_back(operadorCruceUN(pSiguiente[i+1], pSiguiente[i]));
                 
             }
@@ -754,12 +750,25 @@ vector<int> PAR::algoritmoGenetico (const int M, const string evolucion, const s
 
         ////////////////////////////////// REEMPLAZAR //////////////////////////////////
         
-        // Reemplazar P(t) a partir de P(t-1) y P'
-        pActual = pSiguiente;
+        if (evolucion.compare("G") == 0){
+            // Reemplazar P(t) a partir de P(t-1) y P'
+            pActual = pSiguiente;
 
-        // Si el mejor cromosoma no esta, lo añado al final
-        if (find(pActual.begin(), pActual.end(), CMejor) == pActual.end())
-            pActual[M-1] = CMejor;
+            // Si el mejor cromosoma no esta, lo añado al final
+            if (find(pActual.begin(), pActual.end(), CMejor) == pActual.end())
+                pActual[M-1] = CMejor;
+        }
+        // DUDA esto ponerlo mas bonito
+        if (evolucion.compare("E") == 0){
+            for (int i = 0; i < M; i++){
+                posCMejor = calcularPeorCromosoma (pActualFitness);
+                CMejor = pActual[posCMejor];
+                clusters = pSiguiente[i];
+
+                if (pActualFitness[posCMejor] > fitnessBL())
+                    pActual[posCMejor] = pSiguiente[i];
+            }
+        }
 
         ////////////////////////////////// EVALUAR //////////////////////////////////
         
@@ -770,6 +779,7 @@ vector<int> PAR::algoritmoGenetico (const int M, const string evolucion, const s
         for (int i = 0; i < M; i++){
             clusters = pActual[i];
             pActualFitness.push_back(fitnessBL()); // DUDA cambiar lo de BL
+            nFitness++;
         }
 
     }
@@ -785,11 +795,27 @@ vector<int> PAR::algoritmoGenetico (const int M, const string evolucion, const s
     return clusters;
 }
 
+/*
+vector<int> PAR::algoritmoMemetico (const int M, const double probCruce, const double probMutacion){
+    
+}
+*/
+
 int PAR::calcularMejorCromosoma (const vector<double> pFitness){
     int fitnessMin = pFitness[0];
 
     for (int i = 0; i < pFitness.size(); i++)
-        if (pFitness[i] < fitnessMin)
+        if (pFitness[i] < pFitness[fitnessMin])
+            fitnessMin = i;
+
+    return fitnessMin;
+}
+
+int PAR::calcularPeorCromosoma (const vector<double> pFitness){
+    int fitnessMin = pFitness[0];
+
+    for (int i = 0; i < pFitness.size(); i++)
+        if (pFitness[i] > pFitness[fitnessMin])
             fitnessMin = i;
 
     return fitnessMin;
@@ -817,7 +843,7 @@ vector<int> PAR::operadorCruceUN (const vector<int> padre1, const vector<int> pa
     for (int i = 0; i < n; i++)
         if (cromosoma[i] == -1)
             cromosoma[i] = padre2[i];
-//cerr << "he llegado?";
+
     repararCromosoma(cromosoma);
 
     return cromosoma;
@@ -839,7 +865,7 @@ vector<int> PAR::operadorCruceSF (const vector<int> padre1, const vector<int> pa
     }
 
     // Hacer (n-v) iteraciones empezando en (r+v)%n
-    for (int i = 0; (n-v);  i++){
+    for (int i = 0; i < (n-v);  i++){
         pos = (r + v + i) % n; // DUDA
         cromosoma[pos] = padre2[pos];
     }
@@ -852,13 +878,15 @@ vector<int> PAR::operadorCruceSF (const vector<int> padre1, const vector<int> pa
 
 vector<int> PAR::operadorMutacionUN (vector<int> cromosoma){
     const int n = cromosoma.size();
-    int posGen, gen;
+    int posGen, gen, antiguoC;
     
     posGen = Randint(0, n-1);
     gen = Randint(0, num_clusters-1);
+    antiguoC = cromosoma[posGen];
     cromosoma[posGen] = gen;
 
-    repararCromosoma(cromosoma);
+    if (clusterVacio(cromosoma))
+        cromosoma[posGen] = antiguoC;
 
     return cromosoma;
 }

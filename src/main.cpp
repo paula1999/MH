@@ -84,4 +84,15 @@ int main (int argc, char ** argv){
 
     calcular_PAR (datos, restricciones, num_clusters, "AGG-UN", semilla);
 
+    cout << "\nEjecutando algoritmo AGG-SF ...\n";
+
+    calcular_PAR (datos, restricciones, num_clusters, "AGG-SF", semilla);
+
+    cout << "\nEjecutando algoritmo AGE-UN ...\n";
+
+    calcular_PAR (datos, restricciones, num_clusters, "AGE-UN", semilla);
+
+    cout << "\nEjecutando algoritmo AGE-SF ...\n";
+
+    calcular_PAR (datos, restricciones, num_clusters, "AGE-SF", semilla);
 }
