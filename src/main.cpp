@@ -24,13 +24,19 @@ void calcular_PAR (const string datos, const string restricciones, const int num
     else if (algoritmo.compare("BL") == 0)
         solucion = par.busquedaLocal();
     else if (algoritmo.compare("AGG-UN") == 0)
-        solucion = par.algoritmoGenetico(50, "G", "UN", 0.7, 0.001);
+        solucion = par.algoritmoGenetico(50, "G", "UN", 0.7);
     else if (algoritmo.compare("AGG-SF") == 0)
-        solucion = par.algoritmoGenetico(50, "G", "SF", 0.7, 0.001);
+        solucion = par.algoritmoGenetico(50, "G", "SF", 0.7);
     else if (algoritmo.compare("AGE-UN") == 0)
-        solucion = par.algoritmoGenetico(50, "E", "UN", 1.0, 0.001);
+        solucion = par.algoritmoGenetico(50, "E", "UN", 1.0);
     else if (algoritmo.compare("AGE-SF") == 0)
-        solucion = par.algoritmoGenetico(50, "E", "SF", 1.0, 0.001);
+        solucion = par.algoritmoGenetico(50, "E", "SF", 1.0);
+    else if (algoritmo.compare("AM-(10,1.0)") == 0)
+        solucion = par.algoritmoMemetico(50, "1.0", 10, 0.7);
+    else if (algoritmo.compare("AM-(10,0.1)") == 0)
+        solucion = par.algoritmoMemetico(50, "0.1", 10, 0.7);
+    else if (algoritmo.compare("AM-(10,0.1mej)") == 0)
+        solucion = par.algoritmoMemetico(50, "0.1mej", 10, 0.7);
     
     chrono::system_clock::time_point stop = chrono::system_clock::now();
     chrono::milliseconds duration = chrono::duration_cast<chrono::milliseconds>(stop - start);
@@ -79,7 +85,7 @@ int main (int argc, char ** argv){
     */
 
     ///////////////////////////////// PRÁCTICA 2 /////////////////////////////////
-
+    
     cout << "\nEjecutando algoritmo AGG-UN ...\n";
 
     calcular_PAR (datos, restricciones, num_clusters, "AGG-UN", semilla);
@@ -95,4 +101,5 @@ int main (int argc, char ** argv){
     cout << "\nEjecutando algoritmo AGE-SF ...\n";
 
     calcular_PAR (datos, restricciones, num_clusters, "AGE-SF", semilla);
+    
 }
