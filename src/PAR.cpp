@@ -680,7 +680,7 @@ vector<int> PAR::algoritmoGenetico (int M, const string evolucion, const string 
     int m, n = clusters.size(), nCruces, nMutaciones, pos, c1, c2, nIterMAX, posCMejor, nFitness;
     vector< vector<int> > pActual, pSiguiente;
     vector<double> pActualFitness;
-    vector<int> cromosoma, CMejor;
+    vector<int> cromosoma, CMejor, posP1;
 
     probMutacion = 0.1/n;
 
@@ -719,13 +719,8 @@ vector<int> PAR::algoritmoGenetico (int M, const string evolucion, const string 
 
     nFitness = 0;
     
-    for (int t = 0; nFitness < nFitnessMAX; t++){  
-        // Guardo el mejor cromosoma
-        posCMejor = calcularMejorCromosoma (pActualFitness);
-        CMejor = pActual[posCMejor];
-        
+    for (int t = 0; nFitness < nFitnessMAX; t++){          
         ////////////////////////////////// SELECCIÓN //////////////////////////////////
-
         pSiguiente.clear();
 
         // Seleccionar P' desde P(t-1)
@@ -745,6 +740,7 @@ vector<int> PAR::algoritmoGenetico (int M, const string evolucion, const string 
         // Recombinar P'
         nCruces = probCruce * m/2.0;
 
+        /*
         // FIXME esto esta feo pero no se como arreglarlo todavia
         for (int i = 0; i < 2*nCruces; i += 2){
             if (operadorCruce.compare("UN") == 0){
@@ -752,7 +748,7 @@ vector<int> PAR::algoritmoGenetico (int M, const string evolucion, const string 
                 pSiguiente.push_back(operadorCruceUN(pSiguiente[i+1], pSiguiente[i]));
             }
             else if (operadorCruce.compare("SF") == 0){
-                pSiguiente.push_back(operadorCruceSF(pSiguiente[i], pSiguiente[i+1]));
+                pSiguiente.push_back(operadorCruceSF(pSiguiente[i], pSiguiente[i+1]));  
                 pSiguiente.push_back(operadorCruceSF(pSiguiente[i+1], pSiguiente[i]));
             }
             else{
@@ -763,47 +759,87 @@ vector<int> PAR::algoritmoGenetico (int M, const string evolucion, const string 
         
         for (int i = 0; i < 2*nCruces; i++)
             pSiguiente.erase(pSiguiente.begin());
+        */
+       
+       for (int i = 0; i < m; i++){
+           if (nCruces > 0){
+                if (operadorCruce.compare("UN") == 0){
+                    if (i % 2 == 0)
+                        pSiguiente.push_back(operadorCruceUN(pSiguiente[i], pSiguiente[i+1])); 
+                    else{          
+                        pSiguiente.push_back(operadorCruceUN(pSiguiente[i+1], pSiguiente[i]));
+                        nCruces--;
+                    }
+                }
+                else if (operadorCruce.compare("SF") == 0){
+                    if (i % 2 == 0)
+                        pSiguiente.push_back(operadorCruceSF(pSiguiente[i], pSiguiente[i+1]));  
+                    else{    
+                        pSiguiente.push_back(operadorCruceSF(pSiguiente[i+1], pSiguiente[i]));
+                        nCruces--;
+                    }
+                }
+                else{
+                    cerr << "ERROR. Parametro 'operador cruce' incorrecto\n";
+                    exit(-1);
+                }
+            }
+        }
+        nCruces = probCruce * m/2.0;
+        
+        for (int i = 0; i < nCruces; i++){
+            pSiguiente.erase(pSiguiente.begin());
+            pSiguiente.erase(pSiguiente.begin());
+        }
+
+
 
         ////////////////////////////////// MUTACIÓN //////////////////////////////////
 
         // Mutar P'
-        if (evolucion.compare("G") == 0){
-            nMutaciones = probMutacion * m * n;
+        nMutaciones = 0;
 
-            for (int i = 0; i < nMutaciones; i++){
-                pos = Randint(0, m-1);
-                pSiguiente[pos] = operadorMutacionUN (pSiguiente[pos]);
-            }
-        }
-        else if (evolucion.compare("E") == 0){
-            for (int i = 0; i < pSiguiente.size(); i++){
+        if (evolucion.compare("G") == 0)
+            nMutaciones = probMutacion * m * n;
+        else if (evolucion.compare("E") == 0)
+            for (int i = 0; i < m; i++){
                 prob = Randfloat(0.0, 1.0);
 
-                if (prob < probMutacion*n){
-                    pos = Randint(0, m-1);
-                    pSiguiente[pos] = operadorMutacionUN (pSiguiente[pos]);
-                }
+                if (prob < probMutacion*n)
+                    nMutaciones++;
             }
+
+        for (int i = 0; i < nMutaciones; i++){
+            pos = Randint (0, m-1);
+            pSiguiente[pos] = operadorMutacionUN (pSiguiente[pos]);
         }
 
         ////////////////////////////////// REEMPLAZAR ////////////////////////////////// 
         if (evolucion.compare("G") == 0){
+            posCMejor = calcularMejorCromosoma (pActualFitness);
+            CMejor = pActual[posCMejor];
+            
             // Reemplazar P(t) a partir de P(t-1) y P'
             pActual = pSiguiente;
 
+            pActualFitness.clear();
+            
+            for (int i = 0; i < M; i++){
+                clusters = pActual[i];
+                pActualFitness.push_back(fitnessBL()); // DUDA cambiar lo de BL
+                nFitness++;
+            }
+
             // Si el mejor cromosoma no esta, lo añado al final
             if (find(pActual.begin(), pActual.end(), CMejor) == pActual.end()){
-                pActualFitness.clear();
-            
-                for (int i = 0; i < M; i++){
-                    clusters = pActual[i];
-                    pActualFitness.push_back(fitnessBL()); // DUDA cambiar lo de BL
-                    nFitness++;
-                }
+                posCMejor = calcularPeorCromosoma (pActualFitness); // nombre de variable contradictorio, es posCPeor
+                clusters = CMejor;  
 
-                posCMejor = calcularPeorCromosoma (pActualFitness);
-                pActual[posCMejor] = CMejor;                
-            } 
+                if (pActualFitness[posCMejor] > fitnessBL()){
+                    pActual[posCMejor] = CMejor;
+                    pActualFitness[posCMejor] = fitnessBL();
+                }      
+            }
         }
         // DUDA esto ponerlo mas bonito
         // FIXME nombres de variables contradictorios
@@ -822,7 +858,7 @@ vector<int> PAR::algoritmoGenetico (int M, const string evolucion, const string 
         }
 
         ////////////////////////////////// EVALUAR //////////////////////////////////
-        
+        /*
         // Evaluar P(t)
         // TO DO crear mejor una funcion para hacer esto
         if (evolucion.compare("G") == 0){
@@ -835,6 +871,7 @@ vector<int> PAR::algoritmoGenetico (int M, const string evolucion, const string 
             }
             
         }
+        */
     }
 
     // Actualizo atributos
@@ -842,7 +879,7 @@ vector<int> PAR::algoritmoGenetico (int M, const string evolucion, const string 
     posCMejor = calcularMejorCromosoma (pActualFitness);
     clusters = pActual[posCMejor];
     desvGeneral = desviacionGeneral();
-    fitness = fitnessGreedy();
+    fitness = fitnessBL();
     infeasibility = infeasibilityGreedy();
 
     return clusters;
@@ -969,7 +1006,7 @@ vector<int> PAR::algoritmoMemetico (const int M, const string probSeleccion, con
     posCMejor = calcularMejorCromosoma (pActualFitness);
     clusters = pActual[posCMejor];
     desvGeneral = desviacionGeneral();
-    fitness = fitnessGreedy();
+    fitness = fitnessBL();
     infeasibility = infeasibilityGreedy();
 
     return clusters;
@@ -1025,7 +1062,8 @@ vector<int> PAR::operadorCruceUN (const vector<int> padre1, const vector<int> pa
         if (cromosoma[i] == -1)
             cromosoma[i] = padre2[i];
 
-    repararCromosoma(cromosoma);
+    if (clusterVacio(cromosoma))
+        repararCromosoma(cromosoma);
 
     return cromosoma;
 }
@@ -1050,7 +1088,8 @@ vector<int> PAR::operadorCruceSF (const vector<int> padre1, const vector<int> pa
         cromosoma[pos] = padre2[pos];
     }
 
-    repararCromosoma(cromosoma);
+    if (clusterVacio(cromosoma))
+        repararCromosoma(cromosoma);
 
     return cromosoma;
 }
@@ -1081,7 +1120,7 @@ void PAR::repararCromosoma (vector<int> & cromosoma){
         if (contador[i] == 0){
             do{
                 pos = Randint(0, cromosoma.size() - 1);
-            } while (contador[cromosoma[pos]] - 1 == 0);
+            } while (contador[cromosoma[pos]] - 1 <= 0);
 
             cromosoma[pos] = i;
             contador[cromosoma[pos]]--;

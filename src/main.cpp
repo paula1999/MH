@@ -101,5 +101,5 @@ int main (int argc, char ** argv){
     cout << "\nEjecutando algoritmo AGE-SF ...\n";
 
     calcular_PAR (datos, restricciones, num_clusters, "AGE-SF", semilla);
-   
+
 }
