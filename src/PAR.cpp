@@ -247,6 +247,10 @@ double PAR::fitnessGreedy (){
     return fitness;
 }
 
+double PAR::fitnessS (vector<int> solucion){
+    return (desviacionGeneral(solucion) + lambda * infeasibilityS(solucion));
+}
+
 double PAR::distanciaIntracluster (int cluster, const vector<int> solucion){
     double suma = 0.0, aux = 0.0;
     int tam = 0;
@@ -273,6 +277,19 @@ double PAR::desviacionGeneral (){
     
     for (int i = 0; i < num_clusters; i++)
         suma += distanciaIntracluster(i, clusters);
+
+    desvGeneral = suma/num_clusters;
+
+    return desvGeneral;
+}
+
+double PAR::desviacionGeneral (vector<int> solucion){
+    double suma = 0.0;
+
+    actualizarCentroides(solucion);
+    
+    for (int i = 0; i < num_clusters; i++)
+        suma += distanciaIntracluster(i, solucion);
 
     desvGeneral = suma/num_clusters;
 
@@ -315,6 +332,20 @@ int PAR::infeasibilityCluster (int posicionPunto, int cluster) const{
             if (restricciones[posicionPunto][i] == 1 && posicionPunto != i)
                 infeas++;
             
+    return infeas;
+}
+
+int PAR::infeasibilityS (vector<int> solucion) const{
+    int infeas = 0;
+
+    for (int i = 0; i < restricciones.size(); i++)
+        for (int j = i+1; j < restricciones[i].size(); j++){
+            if (restricciones[i][j] == 1 && solucion[i] != solucion[j])
+                infeas++;
+            else if (restricciones[i][j] == -1 && solucion[i] == solucion[j])
+                infeas++;
+        }
+    
     return infeas;
 }
 
@@ -371,6 +402,31 @@ void PAR::actualizarCentroides (){
     for (int i = 0; i < clusters.size(); i++)
         for (int j = 0; j < centroides[clusters[i]].size(); j++)
             centroides[clusters[i]][j] += datos[i][j];
+
+    for (int i = 0; i < num_clusters; i++)
+        for (int j = 0; j < centroides[i].size(); j++)
+            centroides[i][j] = centroides[i][j]/contador_clusters[i]*1.0;
+}
+
+void PAR::actualizarCentroides (vector<int> solucion){
+    vector<int> contador_clusters(num_clusters, 0);
+
+    for (int i = 0; i < solucion.size(); i++)
+        if (solucion[i] == -1)
+            return;
+    
+    for (int i = 0; i < solucion.size(); i++)
+        contador_clusters[solucion[i]]++;
+
+    centroides.resize(0);
+    centroides.resize(num_clusters);
+
+    for (int i = 0; i < centroides.size(); i++)
+        centroides[i].resize(datos[0].size(), 0.0);
+ 
+    for (int i = 0; i < solucion.size(); i++)
+        for (int j = 0; j < centroides[solucion[i]].size(); j++)
+            centroides[solucion[i]][j] += datos[i][j];
 
     for (int i = 0; i < num_clusters; i++)
         for (int j = 0; j < centroides[i].size(); j++)
@@ -584,13 +640,13 @@ vector<int> PAR::busquedaLocal (){
 /////////////////////////////////////////////////////////////////////////////////////////
 
 
-int PAR::busquedaLocalSuave (vector<int> & solucion, double & fit_min, const int nFallosMAX){
+int PAR::busquedaLocalSuave (vector<int> & solucion, double & fitnessActual, const int nFallosMAX){
     vector<int> indicesDatos;
-    const int n = datos.size();
+    const int n = solucion.size();
     int nFallos, i, cluster_min, infeasibility_min, infeasibility_nueva, nEvaluaciones = 0;
     bool mejora;
     pair<int, int> par;
-    double fit;
+    double fit, fit_min;
 
     // Inicializo indices a los datos
     for (i = 0; i < n; i++)
@@ -606,6 +662,9 @@ int PAR::busquedaLocalSuave (vector<int> & solucion, double & fit_min, const int
 
     while ((mejora or nFallos < nFallosMAX) and i < n) {
         mejora = false;
+        fit_min = fitnessS(solucion);
+        //nEvaluaciones++;
+        
 
         // Asignar el mejor valor posible a S_RSI[i]
         for (int j = 0; j < num_clusters; j++){
@@ -614,19 +673,20 @@ int PAR::busquedaLocalSuave (vector<int> & solucion, double & fit_min, const int
             if (solucion[indicesDatos[i]] != j and parValido(par, solucion)){
                 cluster_min = solucion[indicesDatos[i]];
                 solucion[indicesDatos[i]] = j;
-                infeasibility_nueva -= infeasibilityCluster(indicesDatos[i], cluster_min);
-                infeasibility_nueva += infeasibilityCluster(indicesDatos[i], j);
-                fit = desviacionGeneral() + lambda * infeasibility_nueva;
+                //infeasibility_nueva -= infeasibilityCluster(indicesDatos[i], cluster_min);
+                //infeasibility_nueva += infeasibilityCluster(indicesDatos[i], j);
+                //fit = desviacionGeneral() + lambda * infeasibility_nueva;
+                fit = fitnessS(solucion);
                 nEvaluaciones++;
 
                 if (fit < fit_min){
                     fit_min = fit;
                     mejora = true;   
-                    infeasibility_min = infeasibility_nueva;     
+                    //infeasibility_min = infeasibility_nueva;     
                 }
                 else{
                     solucion[indicesDatos[i]] = cluster_min;
-                    infeasibility_nueva = infeasibility_min;
+                    //infeasibility_nueva = infeasibility_min;
                 }
             }
         }
@@ -637,50 +697,19 @@ int PAR::busquedaLocalSuave (vector<int> & solucion, double & fit_min, const int
         i++;
     }
 
+    fitnessActual = fit_min;
+
     return nEvaluaciones;
 }
-
-/////////////////////////////////////
-        /*
-        cerr << "Seleccion acabada" << endl;  
-        cerr << "---------------------" << endl;
-        cerr << "\nPADRES\n++++++++++++++++++" << endl;
-        cerr << "Tamaño poblacion: " << m << endl;
-        posCMejor = calcularMejorCromosoma (pActualFitness);
-        cerr << "Mejor solucion: " << posCMejor << ", mejor objetivo: " << pActualFitness[posCMejor] <<  endl;
-        for (int i = 0; i < pActual.size(); i++){
-            cerr << "Solucion " << i << ", con objetivo " << pActualFitness[i] << endl;
-        }
-
-        pActualFitness.clear();
-
-        for (int i = 0; i < m; i++){
-        clusters = pSiguiente[i];
-        pActualFitness.push_back(fitnessBL()); // DUDA cambiar lo de BL
-         }
-        cerr << "\nHIJOS\n++++++++++++++++++" << endl;
-        cerr << "Tamaño poblacion: " << m << endl;
-        cerr << "Mejor solucion: " << calcularMejorCromosoma (pActualFitness) << ", mejor objetivo: " << pActualFitness[calcularMejorCromosoma (pActualFitness)] <<  endl;
-        for (int i = 0; i < pActual.size(); i++){
-            cerr << "Solucion " << i << ", con objetivo " << pActualFitness[i] << endl;
-        }
-    pActualFitness.clear();
-for (int i = 0; i < M; i++){
-        clusters = pActual[i];
-        pActualFitness.push_back(fitnessBL()); // DUDA cambiar lo de BL
-    }
-    */
-        ////////////////////////////////////////
-
 
 vector<int> PAR::algoritmoGenetico (int M, const string evolucion, const string operadorCruce, const double probCruce){
     bool recalcular;
     double fit, fit_min, probMutacion, prob;
     const int nFitnessMAX = 100000;
-    int m, n = clusters.size(), nCruces, nMutaciones, pos, c1, c2, nIterMAX, posCMejor, nFitness;
+    int m, n = clusters.size(), nCruces, nMutaciones, pos, c1, c2, nIterMAX, posCMejor, posCPeor, nFitness, auxI;
     vector< vector<int> > pActual, pSiguiente;
     vector<double> pActualFitness;
-    vector<int> cromosoma, CMejor, posP1;
+    vector<int> cromosoma, CMejor, posP1, auxV;
 
     probMutacion = 0.1/n;
 
@@ -711,15 +740,14 @@ vector<int> PAR::algoritmoGenetico (int M, const string evolucion, const string 
     }
 
     // Evaluar la poblacion actual
-    // TO DO crear mejor una funcion para hacer esto
     for (int i = 0; i < M; i++){
-        clusters = pActual[i];
-        pActualFitness.push_back(fitnessBL()); // DUDA cambiar lo de BL
+        pActualFitness.push_back(fitnessS(pActual[i]));
     }
 
     nFitness = 0;
     
-    for (int t = 0; nFitness < nFitnessMAX; t++){          
+    for (int t = 0; nFitness < nFitnessMAX; t++){     
+            
         ////////////////////////////////// SELECCIÓN //////////////////////////////////
         pSiguiente.clear();
 
@@ -732,85 +760,40 @@ vector<int> PAR::algoritmoGenetico (int M, const string evolucion, const string 
             } while (c1 == c2);
 
             pos = operadorSeleccion(c1, c2, pActualFitness);
-            pSiguiente.push_back(pActual[pos]);
+            auxV = pActual[pos];
+            pSiguiente.push_back(auxV);
         }
-/*
-        cerr << "Seleccion acabada" << endl;  
-        cerr << "---------------------" << endl;
-        cerr << "\nPADRES\n++++++++++++++++++" << endl;
-        cerr << "Tamaño poblacion: " << m << endl;
-        posCMejor = calcularMejorCromosoma (pActualFitness);
-        cerr << "Mejor solucion: " << posCMejor << ", mejor objetivo: " << pActualFitness[posCMejor] <<  endl;
-        for (int i = 0; i < pActual.size(); i++){
-            cerr << "Solucion " << i << ", con objetivo " << pActualFitness[i] << endl;
-        }
-
-        pActualFitness.clear();
-
-        for (int i = 0; i < m; i++){
-        clusters = pSiguiente[i];
-        pActualFitness.push_back(fitnessBL()); // DUDA cambiar lo de BL
-         }
-        cerr << "\nHIJOS\n++++++++++++++++++" << endl;
-        cerr << "Tamaño poblacion: " << m << endl;
-        cerr << "Mejor solucion: " << calcularMejorCromosoma (pActualFitness) << ", mejor objetivo: " << pActualFitness[calcularMejorCromosoma (pActualFitness)] <<  endl;
-        for (int i = 0; i < pActual.size(); i++){
-            cerr << "Solucion " << i << ", con objetivo " << pActualFitness[i] << endl;
-        }
-    pActualFitness.clear();
-for (int i = 0; i < M; i++){
-        clusters = pActual[i];
-        pActualFitness.push_back(fitnessBL()); // DUDA cambiar lo de BL
-    }
-*/
         ////////////////////////////////// CRUZAR //////////////////////////////////
 
         // Recombinar P'
         nCruces = probCruce * m/2.0;
-
-        /*
-        // FIXME esto esta feo pero no se como arreglarlo todavia
-        for (int i = 0; i < 2*nCruces; i += 2){
+       
+       for (int i = 0; i < m && nCruces > 0; i++){
             if (operadorCruce.compare("UN") == 0){
-                pSiguiente.push_back(operadorCruceUN(pSiguiente[i], pSiguiente[i+1]));           
-                pSiguiente.push_back(operadorCruceUN(pSiguiente[i+1], pSiguiente[i]));
+                if (i % 2 == 0){
+                    auxV = operadorCruceUN(pSiguiente[i], pSiguiente[i+1]);
+                    pSiguiente.push_back(auxV); 
+                }
+                else{          
+                    auxV = operadorCruceUN(pSiguiente[i], pSiguiente[i-1]);
+                    pSiguiente.push_back(auxV);
+                    nCruces--;
+                }
             }
             else if (operadorCruce.compare("SF") == 0){
-                pSiguiente.push_back(operadorCruceSF(pSiguiente[i], pSiguiente[i+1]));  
-                pSiguiente.push_back(operadorCruceSF(pSiguiente[i+1], pSiguiente[i]));
+                if (i % 2 == 0){
+                    auxV = operadorCruceSF(pSiguiente[i], pSiguiente[i+1]);
+                    pSiguiente.push_back(auxV);  
+                }
+                else{    
+                    auxV = operadorCruceSF(pSiguiente[i], pSiguiente[i-1]);
+                    pSiguiente.push_back(auxV);
+                    nCruces--;
+                }
             }
             else{
                 cerr << "ERROR. Parametro 'operador cruce' incorrecto\n";
                 exit(-1);
-            }
-        }
-        
-        for (int i = 0; i < 2*nCruces; i++)
-            pSiguiente.erase(pSiguiente.begin());
-        */
-       
-       for (int i = 0; i < m; i++){
-           if (nCruces > 0){
-                if (operadorCruce.compare("UN") == 0){
-                    if (i % 2 == 0)
-                        pSiguiente.push_back(operadorCruceUN(pSiguiente[i], pSiguiente[i+1])); 
-                    else{          
-                        pSiguiente.push_back(operadorCruceUN(pSiguiente[i], pSiguiente[i-1]));
-                        nCruces--;
-                    }
-                }
-                else if (operadorCruce.compare("SF") == 0){
-                    if (i % 2 == 0)
-                        pSiguiente.push_back(operadorCruceSF(pSiguiente[i], pSiguiente[i+1]));  
-                    else{    
-                        pSiguiente.push_back(operadorCruceSF(pSiguiente[i], pSiguiente[i-1]));
-                        nCruces--;
-                    }
-                }
-                else{
-                    cerr << "ERROR. Parametro 'operador cruce' incorrecto\n";
-                    exit(-1);
-                }
             }
         }
 
@@ -821,31 +804,6 @@ for (int i = 0; i < M; i++){
             pSiguiente.erase(pSiguiente.begin());
         }
 
-/*
-        cerr << "Cruce acabada" << endl;  
-        cerr << "---------------------" << endl;
-        
-
-        pActualFitness.clear();
-
-        for (int i = 0; i < m; i++){
-        clusters = pSiguiente[i];
-        pActualFitness.push_back(fitnessBL()); // DUDA cambiar lo de BL
-         }
-        cerr << "\nHIJOS\n++++++++++++++++++" << endl;
-        cerr << "Tamaño poblacion: " << m << endl;
-        cerr << "Mejor solucion: " << calcularMejorCromosoma (pActualFitness) << ", mejor objetivo: " << pActualFitness[calcularMejorCromosoma (pActualFitness)] <<  endl;
-        for (int i = 0; i < pActual.size(); i++){
-            cerr << "Solucion " << i << ", con objetivo " << pActualFitness[i] << endl;
-        }
-    pActualFitness.clear();
-for (int i = 0; i < M; i++){
-        clusters = pActual[i];
-        pActualFitness.push_back(fitnessBL()); // DUDA cambiar lo de BL
-    }
-
-
-*/
         ////////////////////////////////// MUTACIÓN //////////////////////////////////
 
         // Mutar P'
@@ -863,31 +821,10 @@ for (int i = 0; i < M; i++){
 
         for (int i = 0; i < nMutaciones; i++){
             pos = Randint (0, m-1);
-            operadorMutacionUN (pSiguiente[pos]);
+            auxV = operadorMutacionUN (pSiguiente[pos]);
+            pSiguiente[pos] = auxV;
         }
-/*
-        cerr << "Mutar acabada" << endl;  
-        cerr << "---------------------" << endl;
-        
 
-        pActualFitness.clear();
-
-        for (int i = 0; i < m; i++){
-        clusters = pSiguiente[i];
-        pActualFitness.push_back(fitnessBL()); // DUDA cambiar lo de BL
-         }
-        cerr << "\nHIJOS\n++++++++++++++++++" << endl;
-        cerr << "Tamaño poblacion: " << m << endl;
-        cerr << "Mejor solucion: " << calcularMejorCromosoma (pActualFitness) << ", mejor objetivo: " << pActualFitness[calcularMejorCromosoma (pActualFitness)] <<  endl;
-        for (int i = 0; i < pActual.size(); i++){
-            cerr << "Solucion " << i << ", con objetivo " << pActualFitness[i] << endl;
-        }
-    pActualFitness.clear();
-for (int i = 0; i < M; i++){
-        clusters = pActual[i];
-        pActualFitness.push_back(fitnessBL()); // DUDA cambiar lo de BL
-    }
-*/
         ////////////////////////////////// REEMPLAZAR ////////////////////////////////// 
         if (evolucion.compare("G") == 0){
             posCMejor = calcularMejorCromosoma (pActualFitness);
@@ -899,64 +836,32 @@ for (int i = 0; i < M; i++){
             pActualFitness.clear();
             
             for (int i = 0; i < M; i++){
-                clusters = pActual[i];
-                pActualFitness.push_back(fitnessBL()); // DUDA cambiar lo de BL
+                fit = fitnessS(pActual[i]);
+                pActualFitness.push_back(fit);
                 nFitness++;
             }
 
             // Si el mejor cromosoma no esta, lo añado al final
             if (find(pActual.begin(), pActual.end(), CMejor) == pActual.end()){
-                posCMejor = calcularPeorCromosoma (pActualFitness); // nombre de variable contradictorio, es posCPeor
-                clusters = CMejor;  
-
-                if (pActualFitness[posCMejor] > fitnessBL()){
-                    pActual[posCMejor] = CMejor;
-                    pActualFitness[posCMejor] = fitnessBL();
-                }      
+                posCPeor = calcularPeorCromosoma (pActualFitness);
+                pActual[posCPeor] = CMejor;
+                fit = fitnessS(pActual[posCPeor]);
+                pActualFitness[posCPeor] = fit;   
             }
         }
-        // DUDA esto ponerlo mas bonito
-        // FIXME nombres de variables contradictorios
         else if (evolucion.compare("E") == 0){
             for (int i = 0; i < m; i++){
-                posCMejor = calcularPeorCromosoma (pActualFitness);
-                clusters = pSiguiente[i];
-                fit = fitnessBL();
+                posCPeor = calcularPeorCromosoma (pActualFitness);
+                
+                fit = fitnessS(pSiguiente[i]);
                 nFitness++;
 
-                if (pActualFitness[posCMejor] > fit){
-                    pActual[posCMejor] = pSiguiente[i];
-                    pActualFitness[posCMejor] = fit;
+                if (pActualFitness[posCPeor] > fit){
+                    pActual[posCPeor] = pSiguiente[i];
+                    pActualFitness[posCPeor] = fit;
                 }
             }
         }
-
-        ////////////////////////////////// EVALUAR //////////////////////////////////
-        /*
-        // Evaluar P(t)
-        // TO DO crear mejor una funcion para hacer esto
-        if (evolucion.compare("G") == 0){
-            pActualFitness.clear();
-            
-            for (int i = 0; i < M; i++){
-                clusters = pActual[i];
-                pActualFitness.push_back(fitnessBL()); // DUDA cambiar lo de BL
-                nFitness++;
-            }
-            
-        }
-        */
-/*
-       cerr << "Reemplazar acabada" << endl;  
-        cerr << "---------------------" << endl;
-        cerr << "\nPADRES\n++++++++++++++++++" << endl;
-        cerr << "Tamaño poblacion: " << m << endl;
-        posCMejor = calcularMejorCromosoma (pActualFitness);
-        cerr << "Mejor solucion: " << posCMejor << ", mejor objetivo: " << pActualFitness[posCMejor] <<  endl;
-        for (int i = 0; i < pActual.size(); i++){
-            cerr << "Solucion " << i << ", con objetivo " << pActualFitness[i] << endl;
-        }
-        */
     }
 
     // Actualizo atributos
@@ -964,25 +869,48 @@ for (int i = 0; i < M; i++){
     posCMejor = calcularMejorCromosoma (pActualFitness);
     clusters = pActual[posCMejor];
     desvGeneral = desviacionGeneral();
-    fitness = fitnessBL();
+    fitness = fitnessS(pActual[posCMejor]);
     infeasibility = infeasibilityGreedy();
 
     return clusters;
 }
 
-// usar AGG-UN
-vector<int> PAR::algoritmoMemetico (const int M, const string probSeleccion, const int nGeneracion, const double probCruce){
-    bool recalcular;
-    double fit, fit_min;
-    int n = clusters.size(), nCruces, nMutaciones, pos, c1, c2, nIterMAX, posCMejor, nFitness;
+vector<int> PAR::algoritmoMemetico (const int M, const string hibridacion, const int nGeneracion, const double probCruce){
+    bool recalcular, mejor;
+    double fit, fit_min, probMutacion, prob, probSeleccion, auxD;
+    const int nFitnessMAX = 100000;
+    int m, n = clusters.size(), nCruces, nMutaciones, pos, c1, c2, nIterMAX, posCMejor, posCPeor, nFitness, auxI, nFallos;
     vector< vector<int> > pActual, pSiguiente;
-    vector<double> pActualFitness;
-    vector<int> cromosoma, CMejor;
+    vector<double> pActualFitness, pSigFitness;
+    vector<int> cromosoma, CMejor, posP1, auxV;
 
-    const int   nFitnessMAX = 100000;
-    const double nFallosMAX = 0.1*M, // FIXME: n es M?
-                 probMutacion = 1/n;
-    
+    probMutacion = 0.1/n;
+    nMutaciones = probMutacion * M * n;
+    nFallos = 0.1*n;
+    prob = 0;
+
+    if (hibridacion.compare("1.0") == 0){
+        probSeleccion = 1.0;
+        m = M;
+        mejor = false;
+        
+    }
+    else if (hibridacion.compare("0.1") == 0){
+        probSeleccion = 0.1;
+        m = probSeleccion * M;
+        mejor = false;
+    }
+    else if (hibridacion.compare("0.1mej") == 0){
+        probSeleccion = 0.1;
+        m = probSeleccion * M;
+        mejor = true;
+        
+    }
+    else{
+        cerr << "ERROR. Parametro 'posibilidad de hibridacion' incorrecto\n";
+        exit(-1);
+    }
+
     // Inicializar y evaluar la poblacion actual
     for (int i = 0; i < M; i++){
         // Calcular un cromosoma valido
@@ -1000,27 +928,14 @@ vector<int> PAR::algoritmoMemetico (const int M, const string probSeleccion, con
     }
 
     // Evaluar la poblacion actual
-    // TO DO crear mejor una funcion para hacer esto
     for (int i = 0; i < M; i++){
-        clusters = pActual[i];
-        pActualFitness.push_back(fitnessBL()); // DUDA cambiar lo de BL
+        pActualFitness.push_back(fitnessS(pActual[i]));
     }
 
     nFitness = 0;
     
-    for (int t = 0; nFitness < nFitnessMAX; t++){
-        if (t % 10 == 0){
-            for (int i = 0; i < pActual.size(); i++){
-                nFitness += busquedaLocalSuave(pActual[i], pActualFitness[i], nFallosMAX);
-            }
-        }
-
-        // Guardo el mejor cromosoma
-        posCMejor = calcularMejorCromosoma (pActualFitness);
-        CMejor = pActual[posCMejor];
-
+    for (int t = 0; nFitness < nFitnessMAX; t++){ 
         ////////////////////////////////// SELECCIÓN //////////////////////////////////
-
         pSiguiente.clear();
 
         // Seleccionar P' desde P(t-1)
@@ -1030,60 +945,102 @@ vector<int> PAR::algoritmoMemetico (const int M, const string probSeleccion, con
             do{
                 c2 = Randint(0, M-1);
             } while (c1 == c2);
-            
 
             pos = operadorSeleccion(c1, c2, pActualFitness);
-
-            pSiguiente.push_back(pActual[pos]);
+            auxV = pActual[pos];
+            pSiguiente.push_back(auxV);
         }
-
         ////////////////////////////////// CRUZAR //////////////////////////////////
 
         // Recombinar P'
-        nCruces = probCruce * M/2;
-
-        // FIXME esto esta feo pero no se como arreglarlo todavia
-        for (int i = 0; i < 2*nCruces; i += 2){
-            pSiguiente.push_back(operadorCruceUN(pSiguiente[i], pSiguiente[i+1]));           
-            pSiguiente.push_back(operadorCruceUN(pSiguiente[i+1], pSiguiente[i]));
+        nCruces = probCruce * M/2.0;
+       
+       for (int i = 0; i < M && nCruces > 0; i++){
+            if (i % 2 == 0){
+                auxV = operadorCruceUN(pSiguiente[i], pSiguiente[i+1]);
+                pSiguiente.push_back(auxV); 
+            }
+            else{          
+                auxV = operadorCruceUN(pSiguiente[i], pSiguiente[i-1]);
+                pSiguiente.push_back(auxV);
+                nCruces--;
+            }
         }
+
+        nCruces = probCruce * M/2.0;
         
         for (int i = 0; i < nCruces; i++){
+            pSiguiente.erase(pSiguiente.begin());
             pSiguiente.erase(pSiguiente.begin());
         }
 
         ////////////////////////////////// MUTACIÓN //////////////////////////////////
 
         // Mutar P'
-        nMutaciones = M * n * probMutacion;
-
         for (int i = 0; i < nMutaciones; i++){
-            pos = Randint(0, M-1);
-            operadorMutacionUN (pSiguiente[pos]);
+            pos = Randint (0, M-1);
+            auxV = operadorMutacionUN (pSiguiente[pos]);
+            pSiguiente[pos] = auxV;
         }
 
-        ////////////////////////////////// REEMPLAZAR //////////////////////////////////
-        
-        // Reemplazar P(t) a partir de P(t-1) y P'
-        pActual = pSiguiente;
+        ///////////////////////////////////// BLS /////////////////////////////////////
+        // Evaluo la nueva poblacion
+        pSigFitness.clear();
 
-        // Si el mejor cromosoma no esta, lo añado al final
-        if (find(pActual.begin(), pActual.end(), CMejor) == pActual.end())
-            pActual[M-1] = CMejor;
-
-
-        ////////////////////////////////// EVALUAR //////////////////////////////////
-        
-        // Evaluar P(t)
-        // TO DO crear mejor una funcion para hacer esto
-        pActualFitness.clear();
-        
         for (int i = 0; i < M; i++){
-            clusters = pActual[i];
-            pActualFitness.push_back(fitnessBL()); // DUDA cambiar lo de BL
+            pSigFitness.push_back(fitnessS(pSiguiente[i]));
             nFitness++;
         }
 
+        if ((t+1) % 10 == 0){
+            if (!mejor){
+                for (int i = 0; i < M; i++){
+                    if (probSeleccion != 1.0)
+                        prob = Randfloat(0.0, 1.0);
+                    
+                    if (prob < probSeleccion or probSeleccion == 1.0){
+                        nFitness += busquedaLocalSuave(pSiguiente[i], pSigFitness[i], nFallos) + 1;
+                    }
+                }
+            }
+            else if (mejor){
+                // Ordenar de menor a mayor
+                for (int i = 1; i < M; i++){
+                    for (int j = 0; j < (M-i); j++){
+                        if (pSigFitness[j] > pSigFitness[j+1]){
+                            auxD = pSigFitness[j];
+                            pSigFitness[j] = pSigFitness[j+1];
+                            pSigFitness[j+1] = auxD;
+                            auxV = pSiguiente[j];
+                            pSiguiente[j] = pSiguiente[j];
+                            pSiguiente[j+1] = auxV;
+                        }
+                    }
+                }
+
+                for (int i = 0; i < m; i++){
+                    nFitness += busquedaLocalSuave(pSiguiente[i], pSigFitness[i], nFallos);
+                }
+            }
+        }
+
+        ////////////////////////////////// REEMPLAZAR /////////////////////////////////
+
+        posCMejor = calcularMejorCromosoma (pActualFitness);
+        CMejor = pActual[posCMejor];
+            
+        // Reemplazar P(t) a partir de P(t-1) y P'
+        pActual = pSiguiente;
+
+        pActualFitness = pSigFitness;
+
+        // Si el mejor cromosoma no esta, lo añado al final
+        if (find(pActual.begin(), pActual.end(), CMejor) == pActual.end()){
+            posCPeor = calcularPeorCromosoma (pActualFitness);
+            pActual[posCPeor] = CMejor;
+            fit = fitnessS(pActual[posCPeor]);
+            pActualFitness[posCPeor] = fit;   
+        }
     }
 
     // Actualizo atributos
@@ -1091,16 +1048,15 @@ vector<int> PAR::algoritmoMemetico (const int M, const string probSeleccion, con
     posCMejor = calcularMejorCromosoma (pActualFitness);
     clusters = pActual[posCMejor];
     desvGeneral = desviacionGeneral();
-    fitness = fitnessBL();
+    fitness = fitnessS(pActual[posCMejor]);
     infeasibility = infeasibilityGreedy();
 
     return clusters;
-
 }
 
 
 int PAR::calcularMejorCromosoma (const vector<double> pFitness){
-    int fitnessMin = pFitness[0];
+    int fitnessMin = 0;
 
     for (int i = 0; i < pFitness.size(); i++)
         if (pFitness[i] < pFitness[fitnessMin])
@@ -1110,7 +1066,7 @@ int PAR::calcularMejorCromosoma (const vector<double> pFitness){
 }
 
 int PAR::calcularPeorCromosoma (const vector<double> pFitness){
-    int fitnessMin = pFitness[0];
+    int fitnessMin = 0;
 
     for (int i = 0; i < pFitness.size(); i++)
         if (pFitness[i] > pFitness[fitnessMin])
@@ -1174,12 +1130,12 @@ vector<int> PAR::operadorCruceSF (const vector<int> padre1, const vector<int> pa
     }
 
     if (clusterVacio(cromosoma))
-        repararCromosoma(cromosoma);
+        cromosoma = repararCromosoma(cromosoma);
 
     return cromosoma;
 }
 
-void PAR::operadorMutacionUN (vector<int> & cromosoma){
+vector<int> PAR::operadorMutacionUN (vector<int> cromosoma){
     const int n = cromosoma.size();
     int posGen, gen, antiguoC;
     
@@ -1192,16 +1148,16 @@ void PAR::operadorMutacionUN (vector<int> & cromosoma){
     if (clusterVacio(cromosoma))
         cromosoma[posGen] = antiguoC;
 */
-    do{
+    while (clusterVacio(cromosoma)){
         posGen = Randint(0, n-1);
         gen = Randint(0, num_clusters-1);
         cromosoma[posGen] = gen;
-    } while(clusterVacio(cromosoma));
+    }
 
-    //return cromosoma;
+    return cromosoma;
 }
 
-void PAR::repararCromosoma (vector<int> & cromosoma){
+vector<int> PAR::repararCromosoma (vector<int> cromosoma){
     vector<int> contador(num_clusters, 0);
     int pos;
     
@@ -1218,4 +1174,6 @@ void PAR::repararCromosoma (vector<int> & cromosoma){
             contador[cromosoma[pos]]--;
             contador[i]++;
         }
+    
+    return cromosoma;
 }
