@@ -113,4 +113,5 @@ int main (int argc, char ** argv){
     cout << "\nEjecutando algoritmo AM-(10,0.1mej) ...\n";
 
     calcular_PAR (datos, restricciones, num_clusters, "AM-(10,0.1mej)", semilla);
+    
 }

@@ -708,7 +708,7 @@ vector<int> PAR::algoritmoGenetico (int M, const string evolucion, const string 
     const int nFitnessMAX = 100000;
     int m, n = clusters.size(), nCruces, nMutaciones, pos, c1, c2, nIterMAX, posCMejor, posCPeor, nFitness, auxI;
     vector< vector<int> > pActual, pSiguiente;
-    vector<double> pActualFitness;
+    vector<double> pActualFitness, pSigFitness;
     vector<int> cromosoma, CMejor, posP1, auxV;
 
     probMutacion = 0.1/n;
@@ -750,6 +750,7 @@ vector<int> PAR::algoritmoGenetico (int M, const string evolucion, const string 
             
         ////////////////////////////////// SELECCIÓN //////////////////////////////////
         pSiguiente.clear();
+        pSigFitness.clear();
 
         // Seleccionar P' desde P(t-1)
         for (int i = 0; i < m; i++){
@@ -762,6 +763,7 @@ vector<int> PAR::algoritmoGenetico (int M, const string evolucion, const string 
             pos = operadorSeleccion(c1, c2, pActualFitness);
             auxV = pActual[pos];
             pSiguiente.push_back(auxV);
+            pSigFitness.push_back(pActualFitness[pos]);
         }
         ////////////////////////////////// CRUZAR //////////////////////////////////
 
@@ -772,11 +774,13 @@ vector<int> PAR::algoritmoGenetico (int M, const string evolucion, const string 
             if (operadorCruce.compare("UN") == 0){
                 if (i % 2 == 0){
                     auxV = operadorCruceUN(pSiguiente[i], pSiguiente[i+1]);
-                    pSiguiente.push_back(auxV); 
+                    pSiguiente.push_back(auxV);
+                    pSigFitness.push_back(-1);
                 }
                 else{          
                     auxV = operadorCruceUN(pSiguiente[i], pSiguiente[i-1]);
                     pSiguiente.push_back(auxV);
+                    pSigFitness.push_back(-1);
                     nCruces--;
                 }
             }
@@ -784,10 +788,12 @@ vector<int> PAR::algoritmoGenetico (int M, const string evolucion, const string 
                 if (i % 2 == 0){
                     auxV = operadorCruceSF(pSiguiente[i], pSiguiente[i+1]);
                     pSiguiente.push_back(auxV);  
+                    pSigFitness.push_back(-1);
                 }
                 else{    
                     auxV = operadorCruceSF(pSiguiente[i], pSiguiente[i-1]);
                     pSiguiente.push_back(auxV);
+                    pSigFitness.push_back(-1);
                     nCruces--;
                 }
             }
@@ -802,6 +808,8 @@ vector<int> PAR::algoritmoGenetico (int M, const string evolucion, const string 
         for (int i = 0; i < nCruces; i++){
             pSiguiente.erase(pSiguiente.begin());
             pSiguiente.erase(pSiguiente.begin());
+            pSigFitness.erase(pSigFitness.begin());
+            pSigFitness.erase(pSigFitness.begin());
         }
 
         ////////////////////////////////// MUTACIÓN //////////////////////////////////
@@ -823,38 +831,52 @@ vector<int> PAR::algoritmoGenetico (int M, const string evolucion, const string 
             pos = Randint (0, m-1);
             auxV = operadorMutacionUN (pSiguiente[pos]);
             pSiguiente[pos] = auxV;
+
+            if (pSiguiente[pos] != auxV){
+                pSigFitness[pos] = -1;
+            }
         }
 
         ////////////////////////////////// REEMPLAZAR ////////////////////////////////// 
         if (evolucion.compare("G") == 0){
             posCMejor = calcularMejorCromosoma (pActualFitness);
             CMejor = pActual[posCMejor];
+            fit_min = pActualFitness[posCMejor];
             
             // Reemplazar P(t) a partir de P(t-1) y P'
             pActual = pSiguiente;
 
-            pActualFitness.clear();
+            //pActualFitness.clear();
             
             for (int i = 0; i < M; i++){
-                fit = fitnessS(pActual[i]);
-                pActualFitness.push_back(fit);
-                nFitness++;
+                if (pSigFitness[i] == -1){
+                    fit = fitnessS(pActual[i]);
+                    pActualFitness[i] = fit;
+                    nFitness++;
+                }
+                else{
+                    pActualFitness[i] = pSigFitness[i];
+                }
             }
 
             // Si el mejor cromosoma no esta, lo añado al final
             if (find(pActual.begin(), pActual.end(), CMejor) == pActual.end()){
                 posCPeor = calcularPeorCromosoma (pActualFitness);
                 pActual[posCPeor] = CMejor;
-                fit = fitnessS(pActual[posCPeor]);
-                pActualFitness[posCPeor] = fit;   
+                pActualFitness[posCPeor] = fit_min;   
             }
         }
         else if (evolucion.compare("E") == 0){
             for (int i = 0; i < m; i++){
                 posCPeor = calcularPeorCromosoma (pActualFitness);
                 
-                fit = fitnessS(pSiguiente[i]);
-                nFitness++;
+                if (pSigFitness[i] == -1){
+                    fit = fitnessS(pSiguiente[i]);
+                    nFitness++;
+                }
+                else{
+                    fit = pSigFitness[i];
+                }
 
                 if (pActualFitness[posCPeor] > fit){
                     pActual[posCPeor] = pSiguiente[i];
@@ -936,6 +958,7 @@ vector<int> PAR::algoritmoMemetico (const int M, const string hibridacion, const
     
     for (int t = 0; nFitness < nFitnessMAX; t++){ 
         ////////////////////////////////// SELECCIÓN //////////////////////////////////
+        pSigFitness.clear();
         pSiguiente.clear();
 
         // Seleccionar P' desde P(t-1)
@@ -949,6 +972,7 @@ vector<int> PAR::algoritmoMemetico (const int M, const string hibridacion, const
             pos = operadorSeleccion(c1, c2, pActualFitness);
             auxV = pActual[pos];
             pSiguiente.push_back(auxV);
+            pSigFitness.push_back(pActualFitness[pos]);
         }
         ////////////////////////////////// CRUZAR //////////////////////////////////
 
@@ -959,10 +983,12 @@ vector<int> PAR::algoritmoMemetico (const int M, const string hibridacion, const
             if (i % 2 == 0){
                 auxV = operadorCruceUN(pSiguiente[i], pSiguiente[i+1]);
                 pSiguiente.push_back(auxV); 
+                pSigFitness.push_back(-1);
             }
             else{          
                 auxV = operadorCruceUN(pSiguiente[i], pSiguiente[i-1]);
                 pSiguiente.push_back(auxV);
+                pSigFitness.push_back(-1);
                 nCruces--;
             }
         }
@@ -972,6 +998,8 @@ vector<int> PAR::algoritmoMemetico (const int M, const string hibridacion, const
         for (int i = 0; i < nCruces; i++){
             pSiguiente.erase(pSiguiente.begin());
             pSiguiente.erase(pSiguiente.begin());
+            pSigFitness.erase(pSigFitness.begin());
+            pSigFitness.erase(pSigFitness.begin());
         }
 
         ////////////////////////////////// MUTACIÓN //////////////////////////////////
@@ -981,15 +1009,21 @@ vector<int> PAR::algoritmoMemetico (const int M, const string hibridacion, const
             pos = Randint (0, M-1);
             auxV = operadorMutacionUN (pSiguiente[pos]);
             pSiguiente[pos] = auxV;
+
+            if (pSiguiente[pos] != auxV){
+                pSigFitness[pos] = -1;
+            }
         }
 
         ///////////////////////////////////// BLS /////////////////////////////////////
         // Evaluo la nueva poblacion
-        pSigFitness.clear();
+        
 
         for (int i = 0; i < M; i++){
-            pSigFitness.push_back(fitnessS(pSiguiente[i]));
-            nFitness++;
+            if (pSigFitness[i] == -1){
+                pSigFitness[i] = fitnessS(pSiguiente[i]);
+                nFitness++;
+            }
         }
 
         if ((t+1) % 10 == 0){
@@ -999,7 +1033,7 @@ vector<int> PAR::algoritmoMemetico (const int M, const string hibridacion, const
                         prob = Randfloat(0.0, 1.0);
                     
                     if (prob < probSeleccion or probSeleccion == 1.0){
-                        nFitness += busquedaLocalSuave(pSiguiente[i], pSigFitness[i], nFallos) + 1;
+                        nFitness += busquedaLocalSuave(pSiguiente[i], pSigFitness[i], nFallos);
                     }
                 }
             }
@@ -1028,6 +1062,7 @@ vector<int> PAR::algoritmoMemetico (const int M, const string hibridacion, const
 
         posCMejor = calcularMejorCromosoma (pActualFitness);
         CMejor = pActual[posCMejor];
+        fit_min = pActualFitness[posCMejor];
             
         // Reemplazar P(t) a partir de P(t-1) y P'
         pActual = pSiguiente;
@@ -1038,8 +1073,7 @@ vector<int> PAR::algoritmoMemetico (const int M, const string hibridacion, const
         if (find(pActual.begin(), pActual.end(), CMejor) == pActual.end()){
             posCPeor = calcularPeorCromosoma (pActualFitness);
             pActual[posCPeor] = CMejor;
-            fit = fitnessS(pActual[posCPeor]);
-            pActualFitness[posCPeor] = fit;   
+            pActualFitness[posCPeor] = fit_min;   
         }
     }
 
