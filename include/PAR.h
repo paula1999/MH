@@ -39,7 +39,7 @@ class PAR{
         void imprimirDatos () const;
         bool parValido (pair<int, int> par, vector<int> solucion) const;
         void calcularDistMax();
-        int busquedaLocalSuave (vector<int> & solucion, double & fit_min, const int nFallosMAX);
+        int busquedaLocalSuave (vector<int> & solucion, double fit_min, const int nFallosMAX);
         vector<int> algoritmoGenetico (int M, const string evolucion, const string operadorCruce, const double probCruce);
         vector<int> algoritmoMemetico (const int M, const string hibridacion, const int nGeneracion, const double probCruce);
         int calcularMejorCromosoma (const vector<double> pFitness);

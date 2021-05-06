@@ -1,4 +1,4 @@
-Tiempo: 9884 milisegundos
+Tiempo: 9594 milisegundos
 
 TABLA: 	 (infeas. 	 | 	 desvGeneral 	 | 	 fitness 	 ) 
 			504 		 & 		 0.161318 	 & 	 0.296384 	 &
@@ -50,4 +50,4 @@ Centroide 13: 0.6906 0.47548 0.16012 0.24748 0.11572
 Centroide 14: 0.710571 0.365143 0.14 0.245143 0.0387143 
 Centroide 15: 0.629 0.3296 0.1007 0.1963 0.0343 
 
-DESVIACION GENERAL: 0.1613189884
+DESVIACION GENERAL: 0.1613189594
