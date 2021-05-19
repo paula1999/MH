@@ -6,9 +6,9 @@ OBJ = $(HOME)/obj
 LIB = $(HOME)/lib
 DATA = $(HOME)/data
 
-all: $(BIN)/practica1
+all: $(BIN)/practicaPAR
 
-$(BIN)/practica1: $(OBJ)/random.o $(OBJ)/PAR.o $(OBJ)/main.o
+$(BIN)/practicaPAR: $(OBJ)/random.o $(OBJ)/PAR.o $(OBJ)/main.o
 	g++ $^ -o $@
 
 $(OBJ)/main.o: $(SRC)/main.cpp

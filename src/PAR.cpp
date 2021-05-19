@@ -12,8 +12,10 @@ using namespace std;
 ostream & operator << (ostream & os, const PAR & par){
     os << "\nTABLA: \t (infeas. \t | \t desvGeneral \t | \t fitness \t ) \n";
     os << "\t\t\t" << par.infeasibility << " \t\t & \t\t " << par.desvGeneral << " \t & \t " << par.fitness << " \t &";
+    //os << par.infeasibility << " & " << par.desvGeneral << " & " << par.fitness << " & ";
 
     os << "\nLista de asignaciones a los clusters:";
+
 
     for (int i = 0; i < par.clusters.size(); i++)
         os << " " << par.clusters[i];
@@ -549,27 +551,33 @@ double PAR::fitnessBL (){
     return fitness;
 }
 
+vector<int> PAR::solAleatoria (){
+    vector<int> solucion(num_clusters);
+    bool recalcular;
 
-vector<int> PAR::busquedaLocal (){
+    do{
+        recalcular = false;
+
+        for (int i = 0; i < solucion.size(); i++)
+            solucion[i] = Randint(0, num_clusters-1);
+
+        // Comprobamos que ningun cluster se queda vacio
+        recalcular = clusterVacio (solucion);
+    } while(recalcular);
+
+    return solucion;
+}
+
+vector<int> PAR::busquedaLocal (vector<int> solucion, const int nEvaluacionesMAX){
     vector<int> indicesDatos, indicesVecindarios;
     vector<int>::iterator itDatos, itVecindarios;
     bool recalcular, hay_mejora, nuevainf;
-    const int nEvaluacionesMAX = 100000;
     int nEvaluaciones = 0, antiguainf, infeasibility_min, infeasibility_nueva, cluster_min;
     vector< pair<int, int> > vecindarioVirtual;
     pair<int, int> par;
     double fit_min, fit;
 
-    // Genero la solucion inicial
-    do{
-        recalcular = false;
-
-        for (int i = 0; i < clusters.size(); i++)
-            clusters[i] = Randint(0, num_clusters-1);
-
-        // Comprobamos que ningun cluster se queda vacio
-        recalcular = clusterVacio (clusters);
-    } while(recalcular);
+    clusters = solucion;
  
     actualizarCentroides();
     
@@ -640,7 +648,7 @@ vector<int> PAR::busquedaLocal (){
 /////////////////////////////////////////////////////////////////////////////////////////
 
 
-int PAR::busquedaLocalSuave (vector<int> & solucion, double fitnessActual, const int nFallosMAX){
+int PAR::busquedaLocalSuave (vector<int> & solucion, double & fitnessActual, const int nFallosMAX){
     vector<int> indicesDatos;
     const int n = solucion.size();
     int nFallos, i, cluster_min, nEvaluaciones = 0;
@@ -686,6 +694,8 @@ int PAR::busquedaLocalSuave (vector<int> & solucion, double fitnessActual, const
 
         i++;
     }
+
+    fitnessActual = fit_min;
 
     return nEvaluaciones;
 }
@@ -912,13 +922,10 @@ vector<int> PAR::algoritmoMemetico (const int M, const string hibridacion, const
     nFitness = 0;
     
     for (int t = 1; nFitness < nFitnessMAX; t++){ 
+
         ////////////////////////////////// SELECCIÓN //////////////////////////////////
         pSigFitness.clear();
         pSiguiente.clear();
-
-        posCMejor = calcularMejorCromosoma (pActualFitness);
-        CMejor = pActual[posCMejor];
-        fit_min = pActualFitness[posCMejor];
 
         // Seleccionar P' desde P(t-1)
         for (int i = 0; i < M; i++){
@@ -932,6 +939,7 @@ vector<int> PAR::algoritmoMemetico (const int M, const string hibridacion, const
             pSiguiente.push_back(pActual[pos]);
             pSigFitness.push_back(pActualFitness[pos]);
         }
+
         ////////////////////////////////// CRUZAR //////////////////////////////////
 
         // Recombinar P'
@@ -975,10 +983,8 @@ vector<int> PAR::algoritmoMemetico (const int M, const string hibridacion, const
                     if (probSeleccion != 1.0)
                         prob = Randfloat(0.0, 1.0);
                     
-                    if (prob < probSeleccion or probSeleccion == 1.0){
-                        nFitness += busquedaLocalSuave(pSiguiente[i], pSigFitness[i], nFallos) + 1;
-                        pSigFitness[i] = fitnessS(pSiguiente[i]);
-                    }
+                    if (prob < probSeleccion or probSeleccion == 1.0)
+                        nFitness += busquedaLocalSuave(pSiguiente[i], pSigFitness[i], nFallos);
                 }
             }
             else if (mejor){
@@ -996,11 +1002,8 @@ vector<int> PAR::algoritmoMemetico (const int M, const string hibridacion, const
                     }
                 }
 
-                for (int i = 0; i < m; i++){
-                    nFitness += busquedaLocalSuave(pSiguiente[i], pSigFitness[i], nFallos) + 1;
-                    pSigFitness[i] = fitnessS(pSiguiente[i]);
-                    
-                }
+                for (int i = 0; i < m; i++)
+                    nFitness += busquedaLocalSuave(pSiguiente[i], pSigFitness[i], nFallos);
             }
         }
 
@@ -1120,7 +1123,7 @@ vector<int> PAR::operadorCruceSF (const vector<int> padre1, const vector<int> pa
             cromosoma[i] = padre2[i];
     
     if (clusterVacio(cromosoma))
-        cromosoma = repararCromosoma(cromosoma);
+        repararCromosoma(cromosoma);
 
     return cromosoma;
 }
@@ -1130,15 +1133,15 @@ vector<int> PAR::operadorMutacionUN (vector<int> cromosoma){
     int posGen, gen;
     
     do{
-    posGen = Randint(0, n-1);
-    gen = Randint(0, num_clusters-1);
-    cromosoma[posGen] = gen;
+        posGen = Randint(0, n-1);
+        gen = Randint(0, num_clusters-1);
+        cromosoma[posGen] = gen;
     } while (clusterVacio(cromosoma));
 
     return cromosoma;
 }
 
-vector<int> PAR::repararCromosoma (vector<int> cromosoma){
+void PAR::repararCromosoma (vector<int> & cromosoma){
     vector<int> contador(num_clusters, 0);
     int pos;
     
@@ -1155,6 +1158,185 @@ vector<int> PAR::repararCromosoma (vector<int> cromosoma){
             contador[cromosoma[pos]]--;
             contador[i]++;
         }
+}
+
+
+/////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////// PRÁCTICA 3 //////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////
+
+vector<int> PAR::BMB (const int nIterMAX, const int nEvaluacionesMAX){
+    vector<int> actualSol(num_clusters), nuevaSol, mejorSol;
+    double mejorFit = 9999, nuevaFit;
+    bool recalcular;
+
+    for (int i = 0; i < nIterMAX; i++){
+        // Genero la solucion inicial
+        actualSol = solAleatoria ();
     
-    return cromosoma;
+        actualizarCentroides(actualSol);
+
+        // Aplico BL
+        nuevaSol = busquedaLocal (actualSol, nEvaluacionesMAX);
+        nuevaFit = fitnessS (nuevaSol);
+
+        if (nuevaFit < mejorFit){
+            mejorFit = nuevaFit;
+            mejorSol = nuevaSol;
+        }
+    }
+
+    clusters = mejorSol;
+    desvGeneral = desviacionGeneral(mejorSol);
+    fitness = fitnessS(mejorSol);
+    infeasibility = infeasibilityGreedy();
+
+    return mejorSol;
+}
+
+vector<int> PAR::ES (vector<int> actualSol, const int nFitnessMAX){
+    vector<int> mejorSol, nuevaSol;
+    bool recalcular;
+    double T0, T, fitActual, fitNueva, fitMejor, diferenciaFitness, beta;
+    const int   n = clusters.size(),
+                nVecinosMAX = 10*n,  
+                nExitosMAX = 0.1*nVecinosMAX, 
+                nEnfriamientosMAX = nFitnessMAX/nVecinosMAX;
+    const double PHI = 0.3, MU = 0.3, Tf = 0.001;
+    int nFitness, nVecinos, nExitos, nuevoCluster, anteriorCluster, infeasibilityActual, infeasibilityNueva, pos, nEnfriamientos;
+    pair<int, int> par;
+
+    // Genero la solucion inicial
+    
+    actualizarCentroides(actualSol);
+
+    nuevaSol = actualSol;
+    mejorSol = actualSol;
+    nFitness = 0;
+    nExitos = 1;
+    infeasibilityActual = infeasibilityS (actualSol);
+    infeasibilityNueva = infeasibilityActual;
+    fitActual = fitnessS(actualSol);    
+    T0 = (MU*fitActual)/(-log(PHI));
+    beta = (T0 - Tf)/(nEnfriamientosMAX*T0*Tf);
+    T = T0;
+    nEnfriamientos = 0;
+
+    while ((nFitness < nFitnessMAX) && (nExitos != 0) && (T > Tf)){
+        nVecinos = 0;
+        nExitos = 0;
+        
+        while ((nVecinos < nVecinosMAX) && (nExitos < nExitosMAX)){
+            pos = Randint(0, n - 1);
+            nuevoCluster = Randint(0, num_clusters - 1);
+            par = make_pair(actualSol[pos], nuevoCluster);
+
+            if (actualSol[pos] != nuevoCluster and parValido(par, actualSol)){
+                anteriorCluster = nuevaSol[pos];
+                nuevaSol[pos] = nuevoCluster;
+                infeasibilityNueva -= infeasibilityCluster(nuevaSol[pos], anteriorCluster);
+                infeasibilityNueva += infeasibilityCluster(nuevaSol[pos], nuevoCluster);
+                fitNueva = desviacionGeneral(nuevaSol) + lambda * infeasibilityNueva;
+                nFitness++;
+                nVecinos++;
+                diferenciaFitness = fitNueva - fitActual;
+
+                if ((diferenciaFitness < 0) || (Rand() <= exp(-diferenciaFitness/T))){
+                    actualSol = nuevaSol;
+                    fitActual = fitNueva;
+                    nExitos++;
+
+                    if (fitActual < fitMejor){
+                        mejorSol = actualSol;
+                        fitMejor = fitActual;
+                    }
+                }
+
+            }
+        }
+
+        T = esquemaEnfriamiento (T, beta);
+        nEnfriamientos++;
+    }
+
+    clusters = mejorSol;
+    desvGeneral = desviacionGeneral(mejorSol);
+    fitness = fitnessS(mejorSol);
+    infeasibility = infeasibilityGreedy();
+
+    return clusters;
+}
+
+double PAR::esquemaEnfriamiento (double T, const double beta){
+    return (T/(1 + beta*T));
+}
+
+vector<int> PAR::ILS (const int nEvaluacionesMAX, const string tipo, const double porcentaje){
+    vector<int> mejorSol, S0, S, S1, S2;
+    int nEvaluaciones = 0;
+    double fitnessMejor, fitnessS2;
+    const int n = clusters.size(), v = porcentaje * n / 100;
+
+    S0 = solAleatoria ();
+
+    actualizarCentroides (S0);
+
+    if (tipo.compare("ILS") == 0)
+        S = busquedaLocal (S0, nEvaluacionesMAX);
+    else if (tipo.compare("ILS-ES") == 0)
+        S = ES (S0, nEvaluacionesMAX);
+
+    mejorSol = S;
+    fitnessMejor = fitnessS (mejorSol);
+
+    while (nEvaluaciones < nEvaluacionesMAX){
+        S1 = operadorMutacionSF (mejorSol, v);
+
+        if (tipo.compare("ILS") == 0)
+            S2 = busquedaLocal (S0, nEvaluacionesMAX);
+        else if (tipo.compare("ILS-ES") == 0)
+            S2 = ES (S0, nEvaluacionesMAX);
+            
+        fitnessS2 = fitnessS (S2);
+        nEvaluaciones++;
+
+        if (fitnessS2 < fitnessMejor){
+            mejorSol = S2;
+            fitnessMejor = fitnessS2;
+        }
+    }
+
+    clusters = mejorSol;
+    desvGeneral = desviacionGeneral(mejorSol);
+    fitness = fitnessS(mejorSol);
+    infeasibility = infeasibilityGreedy();
+
+    return clusters;
+}
+
+vector<int> PAR::operadorMutacionSF (vector<int> cromosoma, const int v){
+    const int n = cromosoma.size();
+    int r, i, nIter;
+    vector<int> solucion(n, -1);
+
+    r = Randint (0, n - 1),     // Inicio del segmento
+    i = 0;
+
+    while (i < v){
+        solucion[r] = cromosoma[r];
+        r = (r + 1) % n;
+        i++;
+    }
+
+    nIter = n - v;          // Iteraciones restantes
+
+    for (i = 0; i < nIter; i++){
+        solucion[r] = Randint (0, num_clusters - 1);
+        r = (r + 1) % n;
+    }
+
+    if (clusterVacio(solucion))
+        repararCromosoma(solucion);
+
+    return solucion;
 }

@@ -15,6 +15,7 @@ void calcular_PAR (const string datos, const string restricciones, const int num
 
     Set_random(semilla);
     rutaSol = restricciones + "_" + algoritmo + "_" + to_string(Get_random()) + ".out";
+    //rutaSol = restricciones + "_" + algoritmo + ".out";
     fSol.open(rutaSol, fstream::out);
 
     chrono::system_clock::time_point start = chrono::system_clock::now();
@@ -22,7 +23,7 @@ void calcular_PAR (const string datos, const string restricciones, const int num
     if (algoritmo.compare("Greedy") == 0)
         solucion = par.greedy();
     else if (algoritmo.compare("BL") == 0)
-        solucion = par.busquedaLocal();
+        solucion = par.busquedaLocal(par.solAleatoria(), 100000);
     else if (algoritmo.compare("AGG-UN") == 0)
         solucion = par.algoritmoGenetico(50, "G", "UN", 0.7);
     else if (algoritmo.compare("AGG-SF") == 0)
@@ -37,13 +38,21 @@ void calcular_PAR (const string datos, const string restricciones, const int num
         solucion = par.algoritmoMemetico(50, "0.1", 10, 0.7);
     else if (algoritmo.compare("AM-(10,0.1mej)") == 0)
         solucion = par.algoritmoMemetico(50, "0.1mej", 10, 0.7);
+    else if (algoritmo.compare("ES") == 0)
+        solucion = par.ES(par.solAleatoria(), 100000);
+    else if (algoritmo.compare("BMB") == 0)
+        solucion = par.BMB(10, 10000);
+    else if (algoritmo.compare("ILS") == 0)
+        solucion = par.ILS(10000, "ILS", 10);
+    else if (algoritmo.compare("ILS-ES") == 0)
+        solucion = par.ILS(10000, "ILS-ES", 10);
     
     chrono::system_clock::time_point stop = chrono::system_clock::now();
     chrono::milliseconds duration = chrono::duration_cast<chrono::milliseconds>(stop - start);
     
     if (fSol.is_open()){
         fSol << "Tiempo: " << duration.count() << " milisegundos\n";
-        fSol << par;
+        //fSol << semilla << " : " << par << duration.count() << endl;
         fSol << duration.count() << endl;
 
         cout << "Resultados copiados en " << rutaSol << "\n";
@@ -85,7 +94,7 @@ int main (int argc, char ** argv){
     */
 
     ///////////////////////////////// PRÁCTICA 2 /////////////////////////////////
-
+    /*
     cout << "\nEjecutando algoritmo AGG-UN ...\n";
     
     calcular_PAR (datos, restricciones, num_clusters, "AGG-UN", semilla);
@@ -113,4 +122,27 @@ int main (int argc, char ** argv){
     cout << "\nEjecutando algoritmo AM-(10,0.1mej) ...\n";
 
     calcular_PAR (datos, restricciones, num_clusters, "AM-(10,0.1mej)", semilla);
+    */
+
+    ///////////////////////////////// PRÁCTICA 3 /////////////////////////////////
+    
+    cout << "\nEjecutando algoritmo ES ...\n";
+    
+    calcular_PAR (datos, restricciones, num_clusters, "ES", semilla);
+/*
+    cout << "\nEjecutando algoritmo BMB ...\n";
+    
+    calcular_PAR (datos, restricciones, num_clusters, "BMB", semilla);
+
+    cout << "\nEjecutando algoritmo ES ...\n";
+    
+    calcular_PAR (datos, restricciones, num_clusters, "ES", semilla);
+
+    cout << "\nEjecutando algoritmo ILS ...\n";
+    
+    calcular_PAR (datos, restricciones, num_clusters, "ILD", semilla);
+
+    cout << "\nEjecutando algoritmo ILS-ES ...\n";
+    
+    calcular_PAR (datos, restricciones, num_clusters, "ILS-ES", semilla);*/
 }
