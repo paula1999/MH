@@ -10,10 +10,10 @@
 using namespace std;
 
 ostream & operator << (ostream & os, const PAR & par){
-    os << "\nTABLA: \t (infeas. \t | \t desvGeneral \t | \t fitness \t ) \n";
-    os << "\t\t\t" << par.infeasibility << " \t\t & \t\t " << par.desvGeneral << " \t & \t " << par.fitness << " \t &";
-    //os << par.infeasibility << " & " << par.desvGeneral << " & " << par.fitness << " & ";
-
+    //os << "\nTABLA: \t (infeas. \t | \t desvGeneral \t | \t fitness \t ) \n";
+    //os << "\t\t\t" << par.infeasibility << " \t\t & \t\t " << par.desvGeneral << " \t & \t " << par.fitness << " \t &";
+    os << par.infeasibility << " & " << par.desvGeneral << " & " << par.fitness << " & ";
+/*
     os << "\nLista de asignaciones a los clusters:";
 
 
@@ -46,7 +46,7 @@ ostream & operator << (ostream & os, const PAR & par){
 
     os << "\n\nDESVIACION GENERAL: " << par.desvGeneral;
     //os << "\n\nError_Dist: " << abs(par.desvGeneral - par.distOptima);
-
+*/
     return os;
 }
 
@@ -552,7 +552,7 @@ double PAR::fitnessBL (){
 }
 
 vector<int> PAR::solAleatoria (){
-    vector<int> solucion(num_clusters);
+    vector<int> solucion(clusters.size());
     bool recalcular;
 
     do{
@@ -672,7 +672,7 @@ int PAR::busquedaLocalSuave (vector<int> & solucion, double & fitnessActual, con
 
         // Asignar el mejor valor posible a S_RSI[i]
         for (int j = 0; j < num_clusters; j++){
-            par = make_pair(solucion[indicesDatos[i]], j);
+            par = make_pair(indicesDatos[i], j);
 
             if (solucion[indicesDatos[i]] != j and parValido(par, solucion)){
                 cluster_min = solucion[indicesDatos[i]];
@@ -1173,8 +1173,6 @@ vector<int> PAR::BMB (const int nIterMAX, const int nEvaluacionesMAX){
     for (int i = 0; i < nIterMAX; i++){
         // Genero la solucion inicial
         actualSol = solAleatoria ();
-    
-        actualizarCentroides(actualSol);
 
         // Aplico BL
         nuevaSol = busquedaLocal (actualSol, nEvaluacionesMAX);
@@ -1198,7 +1196,7 @@ vector<int> PAR::ES (vector<int> actualSol, const int nFitnessMAX){
     vector<int> mejorSol, nuevaSol;
     bool recalcular;
     double T0, T, fitActual, fitNueva, fitMejor, diferenciaFitness, beta;
-    const int   n = clusters.size(),
+    const int   n = actualSol.size(),
                 nVecinosMAX = 10*n,  
                 nExitosMAX = 0.1*nVecinosMAX, 
                 nEnfriamientosMAX = nFitnessMAX/nVecinosMAX;
@@ -1206,37 +1204,30 @@ vector<int> PAR::ES (vector<int> actualSol, const int nFitnessMAX){
     int nFitness, nVecinos, nExitos, nuevoCluster, anteriorCluster, infeasibilityActual, infeasibilityNueva, pos, nEnfriamientos;
     pair<int, int> par;
 
-    // Genero la solucion inicial
-    
-    actualizarCentroides(actualSol);
-
-    nuevaSol = actualSol;
     mejorSol = actualSol;
     nFitness = 0;
     nExitos = 1;
-    infeasibilityActual = infeasibilityS (actualSol);
-    infeasibilityNueva = infeasibilityActual;
-    fitActual = fitnessS(actualSol);    
+    fitActual = fitnessS(actualSol);
+    fitMejor = fitActual;
     T0 = (MU*fitActual)/(-log(PHI));
     beta = (T0 - Tf)/(nEnfriamientosMAX*T0*Tf);
     T = T0;
     nEnfriamientos = 0;
 
-    while ((nFitness < nFitnessMAX) && (nExitos != 0) && (T > Tf)){
+    while ((nFitness < nFitnessMAX) && (nExitos != 0)){
         nVecinos = 0;
         nExitos = 0;
         
         while ((nVecinos < nVecinosMAX) && (nExitos < nExitosMAX)){
+            nuevaSol = actualSol;
             pos = Randint(0, n - 1);
             nuevoCluster = Randint(0, num_clusters - 1);
-            par = make_pair(actualSol[pos], nuevoCluster);
+            par = make_pair(pos, nuevoCluster);
 
             if (actualSol[pos] != nuevoCluster and parValido(par, actualSol)){
-                anteriorCluster = nuevaSol[pos];
+                anteriorCluster = actualSol[pos];
                 nuevaSol[pos] = nuevoCluster;
-                infeasibilityNueva -= infeasibilityCluster(nuevaSol[pos], anteriorCluster);
-                infeasibilityNueva += infeasibilityCluster(nuevaSol[pos], nuevoCluster);
-                fitNueva = desviacionGeneral(nuevaSol) + lambda * infeasibilityNueva;
+                fitNueva = fitnessS (nuevaSol);
                 nFitness++;
                 nVecinos++;
                 diferenciaFitness = fitNueva - fitActual;
@@ -1271,34 +1262,32 @@ double PAR::esquemaEnfriamiento (double T, const double beta){
     return (T/(1 + beta*T));
 }
 
-vector<int> PAR::ILS (const int nEvaluacionesMAX, const string tipo, const double porcentaje){
+vector<int> PAR::ILS (const int nEvaluacionesMAX, const int nIterMAX, const string tipo, const double porcentaje){
     vector<int> mejorSol, S0, S, S1, S2;
-    int nEvaluaciones = 0;
     double fitnessMejor, fitnessS2;
     const int n = clusters.size(), v = porcentaje * n / 100;
 
     S0 = solAleatoria ();
-
-    actualizarCentroides (S0);
 
     if (tipo.compare("ILS") == 0)
         S = busquedaLocal (S0, nEvaluacionesMAX);
     else if (tipo.compare("ILS-ES") == 0)
         S = ES (S0, nEvaluacionesMAX);
 
+    
     mejorSol = S;
     fitnessMejor = fitnessS (mejorSol);
 
-    while (nEvaluaciones < nEvaluacionesMAX){
+    for (int i = 1; i < nIterMAX; i++){
         S1 = operadorMutacionSF (mejorSol, v);
 
         if (tipo.compare("ILS") == 0)
-            S2 = busquedaLocal (S0, nEvaluacionesMAX);
+            S2 = busquedaLocal (S1, nEvaluacionesMAX);
         else if (tipo.compare("ILS-ES") == 0)
-            S2 = ES (S0, nEvaluacionesMAX);
+            S2 = ES (S1, nEvaluacionesMAX);
             
         fitnessS2 = fitnessS (S2);
-        nEvaluaciones++;
+        
 
         if (fitnessS2 < fitnessMejor){
             mejorSol = S2;

@@ -54,7 +54,7 @@ class PAR{
         vector<int> BMB (const int nIterMAX, const int nEvaluacionesMAX);
         vector<int> ES (vector<int> actualSol, const int nFitnessMAX);
         double esquemaEnfriamiento (double T, const double beta);
-        vector<int> ILS (const int nEvaluacionesMAX, const string tipo, const double porcentaje);
+        vector<int> ILS (const int nEvaluacionesMAX, const int nIterMAX, const string tipo, const double porcentaje);
 
         friend ostream & operator << (ostream & flujo, const PAR & par);
 
